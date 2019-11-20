@@ -132,7 +132,7 @@ void O3_CPU::read_from_trace()
 			  }
 		      }
 		    
-		    last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken);
+		    last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_type, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_target);
 		  }
 		  
 		  if ((num_reads >= instrs_to_read_this_cycle) || (IFETCH_BUFFER.occupancy == IFETCH_BUFFER.SIZE))
@@ -280,53 +280,82 @@ void O3_CPU::read_from_trace()
 
 		// determine what kind of branch this is, if any
 		if(!reads_sp && !reads_flags && writes_ip && !reads_other)
+        {
+            // direct jump
+            arch_instr.is_branch = 1;
+            arch_instr.branch_taken = 1;
+            arch_instr.branch_type = BRANCH_JMP_DIRECT_UNCOND;
+        }
+        else if(!reads_sp && !reads_flags && writes_ip && reads_other)
 		  {
-		    // direct jump
+		    // indirect jump
 		    arch_instr.is_branch = 1;
                     arch_instr.branch_taken = 1;
-                    arch_instr.branch_type = BRANCH_DIRECT_JUMP;
-		  }
-		else if(!reads_sp && !reads_flags && writes_ip && reads_other)
-		  {
-		    // indirect branch
-		    arch_instr.is_branch = 1;
-                    arch_instr.branch_taken = 1;
-                    arch_instr.branch_type = BRANCH_INDIRECT;
+                    arch_instr.branch_type = BRANCH_JMP_INDIRECT_UNCOND;
 		  }
 		else if(!reads_sp && reads_ip && !writes_sp && writes_ip && reads_flags && !reads_other)
 		  {
-		    // conditional branch
+		    // conditional direct branch
 		    arch_instr.is_branch = 1;
 		    arch_instr.branch_taken = arch_instr.branch_taken; // don't change this
-		    arch_instr.branch_type = BRANCH_CONDITIONAL;
+		    arch_instr.branch_type = BRANCH_JMP_DIRECT_COND;
 		  }
+		else if(!reads_sp && reads_ip && !writes_sp && writes_ip && reads_flags && reads_other)
+        {
+            // conditional indirect branch
+            arch_instr.is_branch = 1;
+		    arch_instr.branch_taken = arch_instr.branch_taken; // don't change this
+		    arch_instr.branch_type = BRANCH_JMP_INDIRECT_COND;
+        }
 		else if(reads_sp && reads_ip && writes_sp && writes_ip && !reads_flags && !reads_other)
 		  {
-		    // direct call
+		    // direct unconditional call
 		    arch_instr.is_branch = 1;
 		    arch_instr.branch_taken = 1;
-		    arch_instr.branch_type = BRANCH_DIRECT_CALL;
+		    arch_instr.branch_type = BRANCH_CALL_DIRECT_UNCOND;
 		  }
 		else if(reads_sp && reads_ip && writes_sp && writes_ip && !reads_flags && reads_other)
 		  {
-		    // indirect call
+		    // indirect unconditional call
 		    arch_instr.is_branch = 1;
 		    arch_instr.branch_taken = 1;
-		    arch_instr.branch_type = BRANCH_INDIRECT_CALL;
+		    arch_instr.branch_type = BRANCH_CALL_INDIRECT_UNCOND;
 		  }
-		else if(reads_sp && !reads_ip && writes_sp && writes_ip)
+        else if(reads_sp && reads_ip && writes_sp && writes_ip && reads_flags && !reads_other)
 		  {
-		    // return
+		    // direct conditional call
+		    arch_instr.is_branch = 1;
+		    arch_instr.branch_taken = arch_instr.branch_taken; // don't change this
+		    arch_instr.branch_type = BRANCH_CALL_DIRECT_COND;
+		  }
+        else if(reads_sp && reads_ip && writes_sp && writes_ip && reads_flags && reads_other)
+        {
+            // indirect conditional call
+		    arch_instr.is_branch = 1;
+		    arch_instr.branch_taken = arch_instr.branch_taken; // don't change this
+		    arch_instr.branch_type = BRANCH_CALL_INDIRECT_COND;
+        }
+		else if(reads_sp && !reads_ip && writes_sp && writes_ip && !reads_flags)
+		{
+		    // return unconditional
 		    arch_instr.is_branch = 1;
 		    arch_instr.branch_taken = 1;
-		    arch_instr.branch_type = BRANCH_RETURN;
-		  }
+		    arch_instr.branch_type = BRANCH_RETURN_UNCOND;
+	    }
+   		else if(reads_sp && !reads_ip && writes_sp && writes_ip && reads_flags)
+        {
+            // return conditional
+            arch_instr.is_branch = 1;
+		    arch_instr.branch_taken = arch_instr.branch_taken; // don't change this
+		    arch_instr.branch_type = BRANCH_RETURN_COND;
+        }
+
 		else if(writes_ip)
 		  {
 		    // some other branch type that doesn't fit the above categories
 		    arch_instr.is_branch = 1;
-                    arch_instr.branch_taken = arch_instr.branch_taken; // don't change this
-                    arch_instr.branch_type = BRANCH_OTHER;
+            arch_instr.branch_taken = arch_instr.branch_taken; // don't change this
+            arch_instr.branch_type = BRANCH_OTHER;
 		  }
 
 		total_branch_types[arch_instr.branch_type]++;
@@ -373,7 +402,7 @@ void O3_CPU::read_from_trace()
 			      }
 			  }
 			
-			last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken);
+			last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_type, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_target);
                     }
 
                     if ((num_reads >= instrs_to_read_this_cycle) || (IFETCH_BUFFER.occupancy == IFETCH_BUFFER.SIZE))

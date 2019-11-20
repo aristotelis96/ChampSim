@@ -86,7 +86,7 @@ class O3_CPU {
     uint64_t fetch_resume_cycle;
     uint64_t num_branch, branch_mispredictions;
     uint64_t total_rob_occupancy_at_branch_mispredict;
-  uint64_t total_branch_types[8];
+  uint64_t total_branch_types[12];
 
     // TLBs and caches
     CACHE ITLB{"ITLB", ITLB_SET, ITLB_WAY, ITLB_SET*ITLB_WAY, ITLB_WQ_SIZE, ITLB_RQ_SIZE, ITLB_PQ_SIZE, ITLB_MSHR_SIZE},
@@ -136,7 +136,7 @@ class O3_CPU {
 	fetch_resume_cycle = 0;
         num_branch = 0;
         branch_mispredictions = 0;
-	for(uint32_t i=0; i<8; i++)
+	for(uint32_t i=0; i<12; i++)
 	  {
 	    total_branch_types[i] = 0;
 	  }
@@ -233,7 +233,7 @@ class O3_CPU {
     // branch predictor
     uint8_t predict_branch(uint64_t ip);
     void    initialize_branch_predictor(),
-            last_branch_result(uint64_t ip, uint8_t taken); 
+            last_branch_result(uint64_t ip, uint8_t taken, uint8_t branch_type, uint64_t branch_target); 
 };
 
 extern O3_CPU ooo_cpu[NUM_CPUS];

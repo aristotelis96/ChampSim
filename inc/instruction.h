@@ -16,14 +16,18 @@
 #define REG_INSTRUCTION_POINTER 26
 
 // branch types
-#define NOT_BRANCH           0
-#define BRANCH_DIRECT_JUMP   1
-#define BRANCH_INDIRECT      2
-#define BRANCH_CONDITIONAL   3
-#define BRANCH_DIRECT_CALL   4
-#define BRANCH_INDIRECT_CALL 5
-#define BRANCH_RETURN        6
-#define BRANCH_OTHER         7
+#define NOT_BRANCH                  0
+#define BRANCH_JMP_DIRECT_UNCOND    1
+#define BRANCH_JMP_INDIRECT_UNCOND  2
+#define BRANCH_JMP_DIRECT_COND      3
+#define BRANCH_JMP_INDIRECT_COND    4
+#define BRANCH_CALL_DIRECT_UNCOND   5
+#define BRANCH_CALL_INDIRECT_UNCOND 6
+#define BRANCH_CALL_DIRECT_COND     7
+#define BRANCH_CALL_INDIRECT_COND   8
+#define BRANCH_RETURN_UNCOND        9
+#define BRANCH_RETURN_COND          10
+#define BRANCH_OTHER                11
 
 #include "set.h"
 
