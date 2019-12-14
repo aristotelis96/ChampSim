@@ -380,7 +380,8 @@ void O3_CPU::read_from_trace()
 
 			// handle branch prediction & branch predictor update
 			uint8_t branch_prediction = predict_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip);
-			
+            /* Uncomment next line for Perfect Branch Prediction */
+			//branch_prediction = IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken;        
 			if(IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken != branch_prediction)
 			  {
 			    branch_mispredictions++;

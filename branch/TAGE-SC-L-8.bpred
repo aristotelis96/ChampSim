@@ -1706,10 +1706,13 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 #endif
 };
 
+#include "branchstatistics.h"
 
 class PREDICTOR *myPred;
+BRANCHSTATISTICS branchstats;
+
 void O3_CPU::initialize_branch_predictor()
-{
+{	
 	myPred = new PREDICTOR();
 }
 uint8_t O3_CPU::predict_branch(uint64_t ip)
@@ -1718,6 +1721,9 @@ uint8_t O3_CPU::predict_branch(uint64_t ip)
 }
 void O3_CPU::last_branch_result(uint64_t ip, uint8_t taken, uint8_t branch_type, uint64_t branch_target)
 {
+	/* THIS SECTION IS FOR BRANCH STATISTICS */
+	branchstats.add(ip, taken==myPred->GetPrediction(ip));
+	
 	OpType type = ConvertToOptype(branch_type);
 	myPred->UpdatePredictor(ip, type, taken, myPred->GetPrediction(ip), branch_target);
 }

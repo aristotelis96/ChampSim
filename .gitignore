@@ -2,3 +2,5 @@
 /bin/*
 /dpc3_traces/*
 /results_10M/*
+/__pycache__/*
+/results/*

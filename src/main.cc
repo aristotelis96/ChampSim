@@ -4,7 +4,7 @@
 #include "ooo_cpu.h"
 #include "uncore.h"
 #include <fstream>
-
+#include "branchstatistics.h"
 uint8_t warmup_complete[NUM_CPUS], 
         simulation_complete[NUM_CPUS], 
         all_warmup_complete = 0, 
@@ -919,6 +919,7 @@ int main(int argc, char** argv)
     print_dram_stats();
     print_branch_stats();
 #endif
+    branchstats.printH2P();
 
     return 0;
 }
