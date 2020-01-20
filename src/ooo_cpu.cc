@@ -151,6 +151,8 @@ void O3_CPU::read_from_trace()
 		
                 // close the trace file and re-open it
                 pclose(trace_file);
+                cout << "Number of instructions in this trace " << num_retired << endl;
+                exit(0) ; // this must be deleted for normal execution, just counting trace length for now
                 trace_file = popen(gunzip_command, "r");
                 if (trace_file == NULL) {
 		  cerr << endl << "*** CANNOT REOPEN TRACE FILE: " << trace_string << " ***" << endl;
@@ -159,7 +161,7 @@ void O3_CPU::read_from_trace()
             }
 	    else
 	      { // successfully read the trace
-
+            return ; // this must be deleted for normal execution, just counting trace length for now
 		if(instr_unique_id == 0)
 		  {
 		    current_instr = next_instr = trace_read_instr;

@@ -796,9 +796,13 @@ int main(int argc, char** argv)
 	      
 	      // read from trace
 	      if ((ooo_cpu[i].IFETCH_BUFFER.occupancy < ooo_cpu[i].IFETCH_BUFFER.SIZE) && (ooo_cpu[i].fetch_stall == 0))
-		{
-		  ooo_cpu[i].read_from_trace();
-		}
+            {
+                ooo_cpu[i].read_from_trace();
+                /* This section is added to count num of instructions, deleted */
+                ooo_cpu[i].completed_executions--;
+                ooo_cpu[i].num_retired++;            
+                /* end of section */ 
+            }
 	    }
 
             // heartbeat information
