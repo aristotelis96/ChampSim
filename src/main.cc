@@ -15,6 +15,7 @@ uint8_t warmup_complete[NUM_CPUS],
 
 uint64_t warmup_instructions     = 1000000,
          simulation_instructions = 10000000,
+         accuracy, occurrences, misspredictions, reset_window,
          champsim_seed;
 
 time_t start_time;
@@ -497,6 +498,12 @@ int main(int argc, char** argv)
 
     uint32_t seed_number = 0;
 
+
+    occurrences = 0;
+    accuracy = 0;
+    misspredictions = 0;
+    reset_window = 0;               
+
     // check to see if knobs changed using getopt_long()
     int c;
     while (1) {
@@ -507,13 +514,17 @@ int main(int argc, char** argv)
             {"hide_heartbeat", no_argument, 0, 'h'},
             {"cloudsuite", no_argument, 0, 'c'},
             {"low_bandwidth",  no_argument, 0, 'b'},
+            {"accuracy",  optional_argument, 0, 'a'},
+            {"occurrences",  optional_argument, 0, 'o'},
+            {"misspredictions",  optional_argument, 0, 'm'},
+            {"reset_window", optional_argument, 0, "r"},
             {"traces",  no_argument, 0, 't'},
-            {0, 0, 0, 0}      
+            {0, 0, 0, 0}
         };
 
         int option_index = 0;
 
-        c = getopt_long_only(argc, argv, "wihsb", long_options, &option_index);
+        c = getopt_long_only(argc, argv, "wihsbaomr", long_options, &option_index);
 
         // no more option characters
         if (c == -1)
@@ -538,8 +549,20 @@ int main(int argc, char** argv)
             case 'b':
                 knob_low_bandwidth = 1;
                 break;
+            case 'a':
+                accuracy = atol(optarg);
+                break;
+            case 'o':
+                occurrences =  atol(optarg);
+                break;
+            case 'm':
+                misspredictions =  atol(optarg);
+                break;
+            case 'r':
+                reset_window = atol(optarg) ;
+                break;
             case 't':
-                traces_encountered = 1;
+                traces_encountered =  1;
                 break;
             default:
                 abort();
@@ -548,7 +571,6 @@ int main(int argc, char** argv)
         if (traces_encountered == 1)
             break;
     }
-
     // consequences of knobs
     cout << "Warmup Instructions: " << warmup_instructions << endl;
     cout << "Simulation Instructions: " << simulation_instructions << endl;
@@ -576,6 +598,16 @@ int main(int argc, char** argv)
             DRAM_SIZE, DRAM_CHANNELS, 8*DRAM_CHANNEL_WIDTH, DRAM_MTPS);
 
     // end consequence of knobs
+
+    // Conditions for Hard to Predict branches
+    bool doH2P = accuracy>0 && accuracy <=100 && misspredictions > 0 && occurrences > 0;
+    if (doH2P){
+        cout << endl << "Conditions for H2P branch" << endl;
+        cout << "  More than " << occurrences << " occurrences" << endl;
+        cout << "  Minimum misspredictions: " << misspredictions << endl;
+        cout << "  Accuracy less than: " << accuracy << "%" << endl ;
+        cout << "  TODO Reset counters every: " << reset_window << "M instructions (0 for no reset)" << endl << endl;
+    }
 
     // search through the argv for "-traces"
     int found_traces = 0;
@@ -919,7 +951,10 @@ int main(int argc, char** argv)
     print_dram_stats();
     print_branch_stats();
 #endif
-    branchstats.printH2P();
+    if (doH2P){
+        cout << "Hard-to-Predict branches found:" << endl;
+        branchstats.printH2P(accuracy, occurrences, misspredictions, reset_window);
+    }
 
     return 0;
 }

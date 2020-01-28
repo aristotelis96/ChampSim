@@ -29,12 +29,12 @@ class BRANCHSTATISTICS {
             }
         }
 
-        void printH2P(){
+        void printH2P(uint64_t accuracy, uint64_t occurrences, uint64_t misspredictions){
             unordered_map<uint64_t, stats>::iterator itr;
             long int h2p = 0;
             for (itr = branches.begin(); itr != branches.end(); itr++){
-                if ((double)itr->second.misspredictions / (double)itr->second.counter <= 0.1 && itr->second.counter > 1000 && itr->second.misspredictions > 100){
-                    h2p++;
+                if ((double)itr->second.misspredictions / (double)itr->second.counter <= accuracy && itr->second.counter > occurrences && itr->second.misspredictions > misspredictions){
+                    h2p++;                    
                 }
             }
             cout << h2p << endl;
