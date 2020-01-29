@@ -5,6 +5,8 @@
 #include "uncore.h"
 #include <fstream>
 #include "branchstatistics.h"
+BRANCHSTATISTICS branchstats;
+
 uint8_t warmup_complete[NUM_CPUS], 
         simulation_complete[NUM_CPUS], 
         all_warmup_complete = 0, 
@@ -517,7 +519,7 @@ int main(int argc, char** argv)
             {"accuracy",  optional_argument, 0, 'a'},
             {"occurrences",  optional_argument, 0, 'o'},
             {"misspredictions",  optional_argument, 0, 'm'},
-            {"reset_window", optional_argument, 0, "r"},
+            {"reset_window", optional_argument, 0, 'r'},
             {"traces",  no_argument, 0, 't'},
             {0, 0, 0, 0}
         };
@@ -953,7 +955,7 @@ int main(int argc, char** argv)
 #endif
     if (doH2P){
         cout << "Hard-to-Predict branches found:" << endl;
-        branchstats.printH2P(accuracy, occurrences, misspredictions, reset_window);
+        branchstats.printH2P(accuracy, occurrences, misspredictions);
     }
 
     return 0;
