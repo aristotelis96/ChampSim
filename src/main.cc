@@ -5,7 +5,7 @@
 #include "uncore.h"
 #include <fstream>
 #include "branchstatistics.h"
-BRANCHSTATISTICS branchstats;
+BRANCHSTATISTICS *branchstats;
 
 uint8_t warmup_complete[NUM_CPUS], 
         simulation_complete[NUM_CPUS], 
@@ -698,7 +698,7 @@ int main(int argc, char** argv)
 
         // BRANCH PREDICTOR
         ooo_cpu[i].initialize_branch_predictor();
-
+        branchstats = new BRANCHSTATISTICS(reset_window*1000000);
         // TLBs
         ooo_cpu[i].ITLB.cpu = i;
         ooo_cpu[i].ITLB.cache_type = IS_ITLB;
@@ -955,7 +955,7 @@ int main(int argc, char** argv)
 #endif
     if (doH2P){
         cout << "Hard-to-Predict branches found:" << endl;
-        branchstats.printH2P(accuracy, occurrences, misspredictions);
+        branchstats->printH2P(accuracy, occurrences, misspredictions);
     }
 
     return 0;

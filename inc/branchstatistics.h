@@ -14,8 +14,15 @@ class BRANCHSTATISTICS {
     private:
         unordered_map<uint64_t, stats> branches;
         pair<unordered_map<uint64_t,stats>::iterator,bool> ret;
+        uint64_t reset_window;
+        uint64_t instr_counter;
 
     public:
+        BRANCHSTATISTICS(uint64_t reset){
+            reset_window = reset;
+            instr_counter = 0;
+        }
+
         void add(uint64_t ip, bool missprediction){
             stats stat = {1, 1};
             ret = branches.insert( pair<uint64_t, stats>(ip, stat));
@@ -25,6 +32,13 @@ class BRANCHSTATISTICS {
                 if (missprediction == false){
                     // if missprediction, increase miss counter
                     branches[ip].misspredictions++;
+                }
+            }
+            if (reset_window != 0){
+                instr_counter++;
+                if (instr_counter == reset_window){
+                    branches.clear();
+                    instr_counter = 0;
                 }
             }
         }
@@ -41,6 +55,6 @@ class BRANCHSTATISTICS {
         }
 } ;
 
-extern BRANCHSTATISTICS branchstats;
+extern BRANCHSTATISTICS *branchstats;
 
 #endif
