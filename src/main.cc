@@ -6,6 +6,8 @@
 #include <fstream>
 #include "branchstatistics.h"
 BRANCHSTATISTICS *branchstats;
+bool doH2P;
+string perfect_H2P_file;
 
 uint8_t warmup_complete[NUM_CPUS], 
         simulation_complete[NUM_CPUS], 
@@ -507,6 +509,10 @@ int main(int argc, char** argv)
     misspredictions = -1;
     reset_window = -1;       
     uint8_t show_IPs = 0;
+
+    // path to H2P IPs log file
+    perfect_H2P_file = "";
+
     // check to see if knobs changed using getopt_long()
     int c;
     while (1) {
@@ -518,6 +524,7 @@ int main(int argc, char** argv)
             {"show_IPs", no_argument, 0, 'I'},
             {"cloudsuite", no_argument, 0, 'c'},
             {"low_bandwidth",  no_argument, 0, 'b'},
+            {"perfect_H2P", optional_argument, 0, 'H'},
             {"accuracy",  optional_argument, 0, 'a'},
             {"occurrences",  optional_argument, 0, 'o'},
             {"misspredictions",  optional_argument, 0, 'm'},
@@ -528,7 +535,7 @@ int main(int argc, char** argv)
 
         int option_index = 0;
 
-        c = getopt_long_only(argc, argv, "wihIsbaomr", long_options, &option_index);
+        c = getopt_long_only(argc, argv, "wihIsbHaomr", long_options, &option_index);
         // no more option characters
         if (c == -1)
             break;
@@ -554,6 +561,9 @@ int main(int argc, char** argv)
                 break;
             case 'b':
                 knob_low_bandwidth = 1;
+                break;
+            case 'H':
+                perfect_H2P_file = optarg;
                 break;
             case 'a':
                 accuracy = atol(optarg);
@@ -605,7 +615,7 @@ int main(int argc, char** argv)
     // end consequence of knobs
 
     // Conditions for Hard to Predict branches
-    bool doH2P = accuracy>=0 && accuracy <=100 && misspredictions >=0 && occurrences >=0 && reset_window>=0;
+    doH2P = accuracy>=0 && accuracy <=100 && misspredictions >=0 && occurrences >=0 && reset_window>=0;
     if (doH2P){
         cout << endl << "Conditions for H2P branch" << endl;
         cout << "  More than " << occurrences << " occurrences" << endl;
@@ -614,6 +624,27 @@ int main(int argc, char** argv)
         cout << "  Reset counters every: " << reset_window << " instructions (0 for no reset)" << endl << endl;        
         branchstats = new BRANCHSTATISTICS(accuracy, occurrences, misspredictions, reset_window);
 
+    }
+    // If you have path for H2P log file and NOT trying to find new H2Ps, then read log file and get H2P from there
+    if (perfect_H2P_file != "" && !doH2P){
+        ifstream H2P_file(perfect_H2P_file);
+        if(!H2P_file.good()){
+            cout << "H2P LOG FILE DOES NOT EXIST" << endl;
+            assert(false);
+        }
+        // Use branchstats only as a data structure for H2Ps
+        branchstats = new BRANCHSTATISTICS();
+        //skip log file information
+        string line;
+        while (getline(H2P_file, line)){
+            if(!line.find("IPs of H2P found:")){
+                break;
+            }                        
+        }
+        // add h2p ips in data structure
+        while(getline(H2P_file, line)){
+            branchstats->add(strtoull(line.c_str(), NULL, 0));
+        }
     }
 
     // search through the argv for "-traces"

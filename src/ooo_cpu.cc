@@ -135,7 +135,7 @@ void O3_CPU::read_from_trace()
 		    
 		    last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_type, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_target);
             /* THIS SECTION IS FOR BRANCH STATISTICS */
-            if(warmup_complete[cpu] && branchstats != NULL){
+            if(warmup_complete[cpu] && doH2P){
     	        branchstats->add(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken==branch_prediction);
             }
 	
@@ -389,6 +389,13 @@ void O3_CPU::read_from_trace()
                   uint8_t branch_prediction = predict_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip);
                   /* Uncomment next line for Perfect Branch Prediction */
                   //branch_prediction = IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken;
+                  
+                  /* if perfect H2P log file is given and we are NOT counting H2P now, then predict H2P perfectly */
+                  if(!doH2P && perfect_H2P_file != ""){
+                      if(branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){
+                        branch_prediction = IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken;
+                      }
+                  }
                   if (IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken != branch_prediction)
                   {
                       branch_mispredictions++;
@@ -412,7 +419,7 @@ void O3_CPU::read_from_trace()
 
                   last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_type, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_target);
                   /* THIS SECTION IS FOR BRANCH STATISTICS */
-                  if(warmup_complete[cpu] && branchstats != NULL){
+                  if(warmup_complete[cpu] && doH2P){
                     branchstats->add(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken == branch_prediction);
                   }
               }

@@ -20,13 +20,21 @@ class BRANCHSTATISTICS {
         long long total_branches = 0, h2p = 0;
         
 
-    public:
+    public:    
+        // Constructor with accuracy, occurrences, misspredictions, reset_window values initialized in order to identify candidate branch as Hard-to-Predict
         BRANCHSTATISTICS(long long accur, long long occur, long long miss, long long reset){
             accuracy = accur;
             occurrences = occur;
             misspredictions = miss;
             reset_window = reset;
             instr_counter = 0;
+        }
+        // Costructor without accuracy, occurrences, misspredictions, reset_window values initialized, use only as data structure for H2P branches
+        BRANCHSTATISTICS(){            
+            accuracy=100;
+            occurrences=0;
+            misspredictions=0;
+            reset_window=0;
         }
         ~BRANCHSTATISTICS(){
             ;            
@@ -43,7 +51,14 @@ class BRANCHSTATISTICS {
             branches.clear();
             instr_counter = 0;
         }
+        // Method to simply add H2P without checking if already inside structure
+        void add(uint64_t ip){
+            stats stat = {1, 1};
+            pair<unordered_map<uint64_t,stats>::iterator,bool> ret;
 
+            ret = branches.insert( pair<uint64_t, stats>(ip, stat));
+        }
+        // Method to add/modify a H2P with statistics
         void add(uint64_t ip, bool missprediction){
             stats stat = {1, 1};
             pair<unordered_map<uint64_t,stats>::iterator,bool> ret;
@@ -62,6 +77,14 @@ class BRANCHSTATISTICS {
                     countH2P_and_clear();
                 }
             }
+        }
+
+        //Method to check if IP is stored
+        bool contain(uint64_t ip){
+            if (branches.count(ip)>0)
+                return true;
+            else
+                return false;
         }
 
         void printH2P(){            
@@ -83,5 +106,6 @@ class BRANCHSTATISTICS {
 } ;
 
 extern BRANCHSTATISTICS *branchstats;
-
+extern bool doH2P;
+extern string perfect_H2P_file;
 #endif
