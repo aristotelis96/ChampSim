@@ -135,7 +135,7 @@ void O3_CPU::read_from_trace()
 		    
 		    last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_type, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_target);
             /* THIS SECTION IS FOR BRANCH STATISTICS */
-            if(warmup_complete[cpu]){
+            if(warmup_complete[cpu] && branchstats != NULL){
     	        branchstats->add(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken==branch_prediction);
             }
 	
@@ -412,7 +412,7 @@ void O3_CPU::read_from_trace()
 
                   last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_type, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_target);
                   /* THIS SECTION IS FOR BRANCH STATISTICS */
-                  if(warmup_complete[cpu]){
+                  if(warmup_complete[cpu] && branchstats != NULL){
                     branchstats->add(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken == branch_prediction);
                   }
               }
