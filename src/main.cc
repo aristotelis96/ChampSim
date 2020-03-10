@@ -609,7 +609,7 @@ int main(int argc, char** argv)
     // note that dram burst length = BLOCK_SIZE/DRAM_CHANNEL_WIDTH
     DRAM_DBUS_RETURN_TIME = (BLOCK_SIZE / DRAM_CHANNEL_WIDTH) * (CPU_FREQ / DRAM_MTPS);
 
-    printf("Off-chip DRAM Size: %u MB Channels: %u Width: %u-bit Data Rate: %u MT/s\n",
+    printf("Off-chip DRAM Size: %u MB Channels: %u Width: %u-bit Data Rate: %u MT/s\n\n",
             DRAM_SIZE, DRAM_CHANNELS, 8*DRAM_CHANNEL_WIDTH, DRAM_MTPS);
 
     // end consequence of knobs
@@ -645,6 +645,8 @@ int main(int argc, char** argv)
         while(getline(H2P_file, line)){
             branchstats->add(strtoull(line.c_str(), NULL, 0));
         }
+        cout << "Hard-to-Predict branches will be 100% accurate based on file: " << endl;
+        cout << perfect_H2P_file << endl;
     }
 
     // search through the argv for "-traces"
