@@ -2,7 +2,7 @@
 
 import os
 
-resultsDir='/home/users/avontz/ChampSim/results/H2P/H2P_with_IP'
+resultsDir='/home/users/avontz/ChampSim/results/H2P/H2P_with_IP_TAGE8'
 
 accList=os.listdir(resultsDir)
 accList.sort()

@@ -1,5 +1,6 @@
 #ifndef _PREDICTOR_H_
 #define _PREDICTOR_H_
+#include "ooo_cpu.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +9,7 @@
 #include <math.h>
 #include "utils.h"
 
-#include "ooo_cpu.h"
+
 
 #define BORNTICK  1024
 //To get the predictor storage budget on stderr  uncomment the next line
@@ -1705,17 +1706,12 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 #endif
 };
 
-
-
-
-
-#endif
-
-
+#include "branchstatistics.h"
 
 class PREDICTOR *myPred;
+
 void O3_CPU::initialize_branch_predictor()
-{
+{	
 	myPred = new PREDICTOR();
 }
 uint8_t O3_CPU::predict_branch(uint64_t ip)
@@ -1724,6 +1720,10 @@ uint8_t O3_CPU::predict_branch(uint64_t ip)
 }
 void O3_CPU::last_branch_result(uint64_t ip, uint8_t taken, uint8_t branch_type, uint64_t branch_target)
 {
+	
 	OpType type = ConvertToOptype(branch_type);
 	myPred->UpdatePredictor(ip, type, taken, myPred->GetPrediction(ip), branch_target);
 }
+
+
+#endif

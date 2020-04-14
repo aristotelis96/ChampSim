@@ -42,15 +42,13 @@ MISSPREDICTIONS=1000
 RESET_WINDOW=30000000
 
 task(){
-	TRACE=$1
-    ACCURACY=$2
+	TRACE=$1    
 	echo "Now running trace:" $TRACE "For accuracy:" $ACCURACY;	
-	(./bin/TAGE8 -warmup_instructions ${N_WARM} -simulation_instructions ${N_SIM} ${OPTION} -accuracy=${ACCURACY} -occurrences=${OCCURRENCES} -misspredictions=${MISSPREDICTIONS} -reset_window=${RESET_WINDOW} -traces ${TRACE_DIR}/${TRACE}) &>  ./results/H2P/H2P_with_IP/acc${ACCURACY}/${TRACE}.txt 
+	(./bin/TAGE8 -warmup_instructions ${N_WARM} -simulation_instructions ${N_SIM} ${OPTION} -accuracy=${ACCURACY} -occurrences=${OCCURRENCES} -misspredictions=${MISSPREDICTIONS} -reset_window=${RESET_WINDOW} -traces ${TRACE_DIR}/${TRACE}) &>  ./results/H2P/H2P_with_IP_TAGE8/${TRACE}.txt 
 }
 
-for ACCURACY in 99 98 97 95 92; do
-    mkdir -p ./results/H2P/H2P_with_IP/acc${ACCURACY}
-    for TRACE in `cat ./myScripts/H2PTraces.txt`; do
-        run_with_lock task $TRACE $ACCURACY
-    done;
+
+mkdir -p ./results/H2P/H2P_with_IP_TAGE8
+for TRACE in `cat ./myScripts/H2PTraces.txt`; do
+    run_with_lock task $TRACE
 done;

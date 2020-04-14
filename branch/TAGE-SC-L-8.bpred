@@ -1,6 +1,5 @@
 #ifndef _PREDICTOR_H_
 #define _PREDICTOR_H_
-#include "ooo_cpu.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -8,164 +7,135 @@
 #include <inttypes.h>
 #include <math.h>
 #include "utils.h"
-
+#include "ooo_cpu.h"
 
 
 #define BORNTICK  1024
+//for the allocation policy
+
 //To get the predictor storage budget on stderr  uncomment the next line
 #define PRINTSIZE
 #include <vector>
-long long IMLIcount;		// use to monitor the iteration number
 
-#define SC			// 8.2 % if TAGE alone
+
+#define SC			// Enables the statiscal corrctor + 5.7 % MPKI without SC
+
+
+#define GSC			// global history in SC  + 0.4% //if no GSC, no local, no loop: +3.2 %
 #define IMLI			// 0.2 %
-#define LOCALH
-
-#ifdef LOCALH			// 2.7 %
-#define LOOPPREDICTOR		//loop predictor enable
-#define LOCALS			//enable the 2nd local history
-#define LOCALT			//enables the 3rd local history
-
-#endif
+#define LOCALH			// + 0.9 % without local
+#define LOOPPREDICTOR		//loop predictor enable //0.4 % mispred reduction
 
 
 
 //The statistical corrector components
-
-#define PERCWIDTH 6		//Statistical corrector  counter width 5 -> 6 : 0.6 %
-//The three BIAS tables in the SC component
-//We play with the TAGE  confidence here, with the number of the hitting bank
-#define LOGBIAS 8
+//The two BIAS tables in the SC component
+//We play with confidence here
+#define LOGBIAS 7
 int8_t Bias[(1 << LOGBIAS)];
+
 #define INDBIAS (((((PC ^(PC >>2))<<1)  ^  (LowConf &(LongestMatchPred!=alttaken))) <<1) +  pred_inter) & ((1<<LOGBIAS) -1)
 int8_t BiasSK[(1 << LOGBIAS)];
 #define INDBIASSK (((((PC^(PC>>(LOGBIAS-2)))<<1) ^ (HighConf))<<1) +  pred_inter) & ((1<<LOGBIAS) -1)
 
 int8_t BiasBank[(1 << LOGBIAS)];
-
-#define INDBIASBANK (pred_inter + (((HitBank+1)/4)<<4) + (HighConf<<1) + (LowConf <<2) +((AltBank!=0)<<3)+ ((PC^(PC>>2))<<7)) & ((1<<LOGBIAS) -1)
-
+#define INDBIASBANK (pred_inter + (((HitBank+1)/4)<<4) + (HighConf<<1) + (LowConf <<2) +((AltBank!=0)<<3)) & ((1<<LOGBIAS) -1)
 
 
-//In all th GEHL components, the two tables with the shortest history lengths have only half of the entries.
-
-// IMLI-SIC -> Micro 2015  paper: a big disappointment on  CBP2016 traces
+long long IMLIcount;		// use to monitor the iteration number
 #ifdef IMLI
-#define LOGINB 8		// 128-entry
+
+#define LOGINB 7
 #define INB 1
 int Im[INB] = { 8 };
 int8_t IGEHLA[INB][(1 << LOGINB)] = { {0} };
 
 int8_t *IGEHL[INB];
 
-#define LOGIMNB 9		// 2* 256 -entry
-#define IMNB 2
 
-int IMm[IMNB] = { 10, 4 };
-int8_t IMGEHLA[IMNB][(1 << LOGIMNB)] = { {0} };
 
-int8_t *IMGEHL[IMNB];
-long long IMHIST[256];
 
 #endif
 
+#define LOGBWNB 7
+#define BWNB 2
+
+int BWm[BWNB] = { 16, 8 }; 
+int8_t BWGEHLA[BWNB][(1 << LOGBWNB)] = { {0} };
+
+int8_t *BWGEHL[BWNB];
+long long BWHIST;
+
+
 //global branch GEHL
-#define LOGGNB 10		// 1 1K + 2 * 512-entry tables
-#define GNB 3
-int Gm[GNB] = { 40, 24, 10 };
+
+#define LOGGNB 7
+#define GNB 2
+long long GHIST;
+int Gm[GNB] = {6,3};
 int8_t GGEHLA[GNB][(1 << LOGGNB)] = { {0} };
 
 int8_t *GGEHL[GNB];
 
-//variation on global branch history
-#define PNB 3
-#define LOGPNB 9		// 1 1K + 2 * 512-entry tables
-int Pm[PNB] = { 25, 16, 9 };
-int8_t PGEHLA[PNB][(1 << LOGPNB)] = { {0} };
 
-int8_t *PGEHL[PNB];
+//large local history
 
-//first local history
-#define LOGLNB  10		// 1 1K + 2 * 512-entry tables
-#define LNB 3
-int Lm[LNB] = { 11, 6, 3 };
+#define LOGLNB 7
+#define LNB 2
+int Lm[LNB] = { 6, 3 };
 int8_t LGEHLA[LNB][(1 << LOGLNB)] = { {0} };
 
 int8_t *LGEHL[LNB];
-#define  LOGLOCAL 8
+
+#define  LOGLOCAL 6
 #define NLOCAL (1<<LOGLOCAL)
 #define INDLOCAL ((PC ^ (PC >>2)) & (NLOCAL-1))
-long long L_shist[NLOCAL];	//local histories
-
-// second local history
-#define LOGSNB 9		// 1 1K + 2 * 512-entry tables
-#define SNB 3
-int Sm[SNB] = { 16, 11, 6 };
-int8_t SGEHLA[SNB][(1 << LOGSNB)] = { {0} };
-
-int8_t *SGEHL[SNB];
-#define LOGSECLOCAL 4
-#define NSECLOCAL (1<<LOGSECLOCAL)	//Number of second local histories
-#define INDSLOCAL  (((PC ^ (PC >>5))) & (NSECLOCAL-1))
-long long S_slhist[NSECLOCAL];
-
-//third local history
-#define LOGTNB 10		// 2 * 512-entry tables
-#define TNB 2
-int Tm[TNB] = { 9, 4 };
-int8_t TGEHLA[TNB][(1 << LOGTNB)] = { {0} };
-
-int8_t *TGEHL[TNB];
-#define NTLOCAL 16
-#define INDTLOCAL  (((PC ^ (PC >>(LOGTNB)))) & (NTLOCAL-1))	// different hash for the history
-long long T_slhist[NTLOCAL];
+long long L_shist[NLOCAL];
 
 
 
 
-
-// playing with putting more weights (x2)  on some of the SC components
-// playing on using different update thresholds on SC
 //update threshold for the statistical corrector
-#define VARTHRES
+#define VARTHRES		
+//more than one update threshold
 #define WIDTHRES 12
 #define WIDTHRESP 8
 #ifdef VARTHRES
-#define LOGSIZEUP 6		//not worth increasing
+#define LOGSIZEUP 6		//not worth increasing:  0-> 6 0.05 MPKI
 #else
 #define LOGSIZEUP 0
 #endif
-#define LOGSIZEUPS  (LOGSIZEUP/2)
+#define LOGSIZEUPS (LOGSIZEUP/2)
 int updatethreshold;
 int Pupdatethreshold[(1 << LOGSIZEUP)];	//size is fixed by LOGSIZEUP
 #define INDUPD (PC ^ (PC >>2)) & ((1 << LOGSIZEUP) - 1)
 #define INDUPDS ((PC ^ (PC >>2)) & ((1 << (LOGSIZEUPS)) - 1))
+
+int8_t WB[(1 << LOGSIZEUPS)];
 int8_t WG[(1 << LOGSIZEUPS)];
 int8_t WL[(1 << LOGSIZEUPS)];
-int8_t WS[(1 << LOGSIZEUPS)];
-int8_t WT[(1 << LOGSIZEUPS)];
-int8_t WP[(1 << LOGSIZEUPS)];
 int8_t WI[(1 << LOGSIZEUPS)];
-int8_t WIM[(1 << LOGSIZEUPS)];
-int8_t WB[(1 << LOGSIZEUPS)];
+int8_t WBW[(1 << LOGSIZEUPS)];
+
+
+
 #define EWIDTH 6
-int LSUM;
 
-// The two counters used to choose between TAGE and SC on Low Conf SC
+
+// The two counters used to choose between TAGE ang SC on High Conf TAGE/Low Conf SC
 int8_t FirstH, SecondH;
-bool MedConf;			// is the TAGE prediction medium confidence
-
-
 #define CONFWIDTH 7		//for the counters in the choser
-#define HISTBUFFERLENGTH 4096	// we use a 4K entries history buffer to store the branch history (this allows us to explore using history length up to 4K)
 
 
 
+
+int LSUM;
 
 
 // utility class for index computation
 // this is the cyclic shift register for folding 
 // a long global history into a smaller number of bits; see P. Michaud's PPM-like predictor at CBP-1
+#define HISTBUFFERLENGTH 4096	// we use a 4K entries history buffer to store the branch history
 class folded_history
 {
 public:
@@ -181,7 +151,7 @@ public:
   }
 
 
-  void init (int original_length, int compressed_length)
+  void init (int original_length, int compressed_length, int N)
   {
     comp = 0;
     OLENGTH = original_length;
@@ -193,15 +163,13 @@ public:
   void update (uint8_t * h, int PT)
   {
     comp = (comp << 1) ^ h[PT & (HISTBUFFERLENGTH - 1)];
+
     comp ^= h[(PT + OLENGTH) & (HISTBUFFERLENGTH - 1)] << OUTPOINT;
     comp ^= (comp >> CLENGTH);
     comp = (comp) & ((1 << CLENGTH) - 1);
   }
 
 };
-
-
-
 
 class bentry			// TAGE bimodal table entry  
 {
@@ -225,6 +193,7 @@ public:
   uint tag;
   int8_t u;
 
+
     gentry ()
   {
     ctr = 0;
@@ -236,62 +205,64 @@ public:
 };
 
 
-
 #define  POWER
 //use geometric history length
+#define NHIST 30		//in practice 15 different lengths
+#define BORN 11			//tables below BORN shared NBBANK[0] banks, ..
+int NBBANK[2] = { 9, 17 };
 
-#define NHIST 36		// twice the number of different histories
+bool NOSKIP[NHIST + 1];		//management of partial associativity 
 
-#define NBANKLOW 10		// number of banks in the shared bank-interleaved for the low history lengths
-#define NBANKHIGH 20		// number of banks in the shared bank-interleaved for the  history lengths
-
-int SizeTable[NHIST + 1];
-
-
-#define BORN 13			// below BORN in the table for low history lengths, >= BORN in the table for high history lengths,
-
-// we use 2-way associativity for the medium history lengths
-#define BORNINFASSOC 9		//2 -way assoc for those banks 0.4 %
-#define BORNSUPASSOC 23
-
-/*in practice 2 bits or 3 bits par branch: around 1200 cond. branchs*/
-
-#define MINHIST 6		//not optimized so far
-#define MAXHIST 3000
+#define BORNINFASSOC  7		//2 -way assoc for the lengths between the two borns: 0.6 %
+#define BORNSUPASSOC 21
 
 
-#define LOGG 10			/* logsize of the  banks in the  tagged TAGE tables */
-#define TBITS 8			//minimum width of the tags  (low history lengths), +4 for high history lengths
+#define MINHIST 4
+#define MAXHIST 1000
 
 
-bool NOSKIP[NHIST + 1];		// to manage the associativity for different history lengths
+#define LOGG 7			/* logsize of a bank in TAGE tables */
+
+#define TBITS 8
+
+
 bool LowConf;
 bool HighConf;
+bool AltConf;
+bool MedConf;
+bool alttaken;			// alternate  TAGEprediction
+bool tage_pred;			// TAGE prediction
+bool LongestMatchPred;
+int HitBank;			// longest matching bank
+int AltBank;			// alternate matching bank
+int Seed;			// for the pseudo-random number generator
+int8_t BIM;
+bool pred_inter;
 
-
-
-#define NNN 1			// number of extra entries allocated on a TAGE misprediction (1+NNN)
+#define NNN 1			// number of extra entries allocated on a TAGE misprediction: 0.4 % better if allocation of 2 elements instead of 1
 #define HYSTSHIFT 2		// bimodal hysteresis shared by 4 entries
-#define LOGB 13			// log of number of entries in bimodal predictor
-
+#define LOGB 12	// log of number of entries in bimodal predictor
+#define PERCWIDTH 6		//Statistical corrector maximum counter width: 5 bits would  be sufficient
 
 #define PHISTWIDTH 27		// width of the path history used in TAGE
-#define UWIDTH 1		// u counter width on TAGE (2 bits not worth the effort for a 512 Kbits predictor 0.2 %)
+#define UWIDTH 2		// u counter width on TAGE (2 bits- -> 1 bit about 1.5 %)
 #define CWIDTH 3		// predictor counter width on the TAGE tagged tables
 
 
 //the counter(s) to chose between longest match and alternate prediction on TAGE when weak counters
-#define LOGSIZEUSEALT 4
-bool AltConf;			// Confidence on the alternate prediction
+#define LOGSIZEUSEALT 3
 #define ALTWIDTH 5
 #define SIZEUSEALT  (1<<(LOGSIZEUSEALT))
-#define INDUSEALT (((((HitBank-1)/8)<<1)+AltConf) % (SIZEUSEALT-1))
+#define INDUSEALT ((((HitBank-1)/8)<<1)+AltConf)
+//#define INDUSEALT 0
 int8_t use_alt_on_na[SIZEUSEALT];
-//very marginal benefit
-long long GHIST;
-int8_t BIM;
+
+
+
 
 int TICK;			// for the reset of the u counter
+
+
 uint8_t ghist[HISTBUFFERLENGTH];
 int ptghist;
 long long phist;		//path history
@@ -309,18 +280,11 @@ int GI[NHIST + 1];		// indexes to the different tables are computed only once
 uint GTAG[NHIST + 1];		// tags for the different tables are computed only once  
 int BI;				// index of the bimodal table
 bool pred_taken;		// prediction
-bool alttaken;			// alternate  TAGEprediction
-bool tage_pred;			// TAGE prediction
-bool LongestMatchPred;
-int HitBank;			// longest matching bank
-int AltBank;			// alternate matching bank
-int Seed;			// for the pseudo-random number generator
-bool pred_inter;
 
 
 #ifdef LOOPPREDICTOR
 //parameters of the loop predictor
-#define LOGL 5
+#define LOGL 3
 #define WIDTHNBITERLOOP 10	// we predict only loops with less than 1K iterations
 #define LOOPTAG 10		//tag width in the loop predictor
 
@@ -363,6 +327,10 @@ int8_t WITHLOOP;		// counter to monitor whether or not loop prediction is benefi
 
 #endif
 
+
+
+
+
 int
 predictorsize ()
 {
@@ -370,10 +338,10 @@ predictorsize ()
   int inter = 0;
 
 
-  STORAGESIZE +=
-    NBANKHIGH * (1 << (logg[BORN])) * (CWIDTH + UWIDTH + TB[BORN]);
-  STORAGESIZE += NBANKLOW * (1 << (logg[1])) * (CWIDTH + UWIDTH + TB[1]);
 
+  STORAGESIZE +=
+    NBBANK[1] * (1 << (logg[BORN])) * (CWIDTH + UWIDTH + TB[BORN]);
+  STORAGESIZE += NBBANK[0] * (1 << (logg[1])) * (CWIDTH + UWIDTH + TB[1]);
   STORAGESIZE += (SIZEUSEALT) * ALTWIDTH;
   STORAGESIZE += (1 << LOGB) + (1 << (LOGB - HYSTSHIFT));
   STORAGESIZE += m[NHIST];
@@ -390,61 +358,32 @@ predictorsize ()
 
 #endif
 
-  inter += WIDTHRES;
-  inter = WIDTHRESP * ((1 << LOGSIZEUP));	//the update threshold counters
-  inter += 3 * EWIDTH * (1 << LOGSIZEUPS);	// the extra weight of the partial sums
-  inter += (PERCWIDTH) * 3 * (1 << (LOGBIAS));
 
-  inter +=
-    (GNB - 2) * (1 << (LOGGNB)) * (PERCWIDTH) +
-    (1 << (LOGGNB - 1)) * (2 * PERCWIDTH);
-  inter += Gm[0];		//global histories for SC
-  inter += (PNB - 2) * (1 << (LOGPNB)) * (PERCWIDTH) +
-    (1 << (LOGPNB - 1)) * (2 * PERCWIDTH);
-//we use phist already counted for these tables
-
+  inter = WIDTHRESP * (1 << LOGSIZEUP);	//the update threshold counters
+inter += WIDTHRES;
+inter += EWIDTH * (1 << LOGSIZEUPS);	// the extra weight of the partial sums
+  inter += (PERCWIDTH) * 3 * (1 << LOGBIAS);
+#ifdef GSC
+  inter += GNB * (1 << LOGGNB) * (PERCWIDTH);
+  inter += Gm[0];		// the global  history
+  inter += EWIDTH * (1 << LOGSIZEUPS);	// the extra weight of the partial sums
+  inter += BWNB * (1 << LOGBWNB) * PERCWIDTH;
+  inter += EWIDTH * (1 << LOGSIZEUPS);	// the extra weight of the partial sums
+  inter += BWm[0];
+#endif
 #ifdef LOCALH
-  inter +=
-    (LNB - 2) * (1 << (LOGLNB)) * (PERCWIDTH) +
-    (1 << (LOGLNB - 1)) * (2 * PERCWIDTH);
-  inter += NLOCAL * Lm[0];
-  inter += EWIDTH * (1 << LOGSIZEUPS);
-#ifdef LOCALS
-  inter +=
-    (SNB - 2) * (1 << (LOGSNB)) * (PERCWIDTH) +
-    (1 << (LOGSNB - 1)) * (2 * PERCWIDTH);
-  inter += NSECLOCAL * (Sm[0]);
-  inter += EWIDTH * (1 << LOGSIZEUPS);
-
-#endif
-#ifdef LOCALT
-  inter +=
-    (TNB - 2) * (1 << (LOGTNB)) * (PERCWIDTH) +
-    (1 << (LOGTNB - 1)) * (2 * PERCWIDTH);
-  inter += NTLOCAL * Tm[0];
-  inter += EWIDTH * (1 << LOGSIZEUPS);
-#endif
-
-
-
-
-
-
-
-
-
+  inter += LNB * (1 << LOGLNB) * (PERCWIDTH);
+  inter += NLOCAL * Lm[0];	// the local history
+  inter += EWIDTH * (1 << LOGSIZEUPS);	// the extra weight of the partial sums
 #endif
 
 
 
 #ifdef IMLI
-
-  inter += (1 << (LOGINB - 1)) * PERCWIDTH;
+  inter += (1 << LOGINB) * PERCWIDTH;
   inter += Im[0];
+  inter += EWIDTH * (1 << LOGSIZEUPS);	// the extra weight of the partial sums
 
-  inter += IMNB * (1 << (LOGIMNB - 1)) * PERCWIDTH;
-  inter += 2 * EWIDTH * (1 << LOGSIZEUPS);	// the extra weight of the partial sums
-  inter += 256 * IMm[0];
 #endif
   inter += 2 * CONFWIDTH;	//the 2 counters in the choser
   STORAGESIZE += inter;
@@ -453,10 +392,10 @@ predictorsize ()
   fprintf (stderr, " (SC %d) ", inter);
 #endif
 #ifdef PRINTSIZE
-  fprintf (stderr, " (TOTAL %d bits %d Kbits) ", STORAGESIZE,
-	   STORAGESIZE / 1024);
-  fprintf (stdout, " (TOTAL %d bits %d Kbits) ", STORAGESIZE,
-	   STORAGESIZE / 1024);
+
+
+  fprintf (stderr, " (TOTAL %d) ", STORAGESIZE);
+  fprintf (stdout, " (TOTAL %d)\n ", STORAGESIZE);
 #endif
 
 
@@ -471,11 +410,9 @@ predictorsize ()
 
 
 class PREDICTOR
-{
+ {
 public:
-  int THRES;
-
-    PREDICTOR (void)
+  PREDICTOR (void)
   {
 
     reinit ();
@@ -483,6 +420,7 @@ public:
     predictorsize ();
 #endif
   }
+
 
 
   void reinit ()
@@ -497,9 +435,9 @@ public:
 		  pow ((double) (MAXHIST) / (double) MINHIST,
 		       (double) (i - 1) / (double) (((NHIST / 2) - 1)))) +
 		 0.5);
-        //      fprintf(stderr, "(%d %d)", m[i],i);
-        
       }
+
+
     for (int i = 1; i <= NHIST; i++)
       {
 	NOSKIP[i] = ((i - 1) & 1)
@@ -507,16 +445,12 @@ public:
 
       }
 
-    NOSKIP[4] = 0;
-    NOSKIP[NHIST - 2] = 0;
-    NOSKIP[8] = 0;
-    NOSKIP[NHIST - 6] = 0;
-    // just eliminate some extra tables (very very marginal)
+
+
 
     for (int i = NHIST; i > 1; i--)
       {
 	m[i] = m[(i + 1) / 2];
-
 
       }
     for (int i = 1; i <= NHIST; i++)
@@ -526,29 +460,24 @@ public:
 
       }
 
-
 #ifdef LOOPPREDICTOR
     ltable = new lentry[1 << (LOGL)];
 #endif
 
-
-    gtable[1] = new gentry[NBANKLOW * (1 << LOGG)];
-    SizeTable[1] = NBANKLOW * (1 << LOGG);
-
-    gtable[BORN] = new gentry[NBANKHIGH * (1 << LOGG)];
-    SizeTable[BORN] = NBANKHIGH * (1 << LOGG);
-
+    gtable[1] = new gentry[NBBANK[0] * (1 << LOGG)];
+    gtable[BORN] = new gentry[NBBANK[1] * (1 << LOGG)];
     for (int i = BORN + 1; i <= NHIST; i++)
       gtable[i] = gtable[BORN];
     for (int i = 2; i <= BORN - 1; i++)
       gtable[i] = gtable[1];
     btable = new bentry[1 << LOGB];
-
     for (int i = 1; i <= NHIST; i++)
       {
-	ch_i[i].init (m[i], (logg[i]));
-	ch_t[0][i].init (ch_i[i].OLENGTH, TB[i]);
-	ch_t[1][i].init (ch_i[i].OLENGTH, TB[i] - 1);
+
+	ch_i[i].init (m[i], 17 + (2 * ((i - 1) / 2) % 4), i - 1);
+	ch_t[0][i].init (ch_i[i].OLENGTH, 13, i);
+	ch_t[1][i].init (ch_i[i].OLENGTH, 11, i + 2);
+
 
       }
 #ifdef LOOPPREDICTOR
@@ -564,7 +493,8 @@ public:
     for (int i = 0; i < HISTBUFFERLENGTH; i++)
       ghist[0] = 0;
     ptghist = 0;
-    updatethreshold=35<<3;
+
+ updatethreshold=35<<3;
     
     for (int i = 0; i < (1 << LOGSIZEUP); i++)
       Pupdatethreshold[i] = 0;
@@ -592,27 +522,20 @@ public:
 	    }
 	}
 
-    for (int i = 0; i < SNB; i++)
-      SGEHL[i] = &SGEHLA[i][0];
-    for (int i = 0; i < TNB; i++)
-      TGEHL[i] = &TGEHLA[i][0];
-    for (int i = 0; i < PNB; i++)
-      PGEHL[i] = &PGEHLA[i][0];
-#ifdef IMLI
-#ifdef IMLIOH
-    for (int i = 0; i < FNB; i++)
-      FGEHL[i] = &FGEHLA[i][0];
-
-    for (int i = 0; i < FNB; i++)
-      for (int j = 0; j < ((1 << LOGFNB) - 1); j++)
+    for (int i = 0; i < BWNB; i++)
+      BWGEHL[i] = &BWGEHLA[i][0];
+    for (int i = 0; i < BWNB; i++)
+      for (int j = 0; j < ((1 << LOGBWNB) - 1); j++)
 	{
 	  if (!(j & 1))
 	    {
-	      FGEHL[i][j] = -1;
+	      BWGEHL[i][j] = -1;
 
 	    }
 	}
-#endif
+
+#ifdef IMLI
+
     for (int i = 0; i < INB; i++)
       IGEHL[i] = &IGEHLA[i][0];
     for (int i = 0; i < INB; i++)
@@ -624,56 +547,14 @@ public:
 
 	    }
 	}
-    for (int i = 0; i < IMNB; i++)
-      IMGEHL[i] = &IMGEHLA[i][0];
-    for (int i = 0; i < IMNB; i++)
-      for (int j = 0; j < ((1 << LOGIMNB) - 1); j++)
-	{
-	  if (!(j & 1))
-	    {
-	      IMGEHL[i][j] = -1;
-
-	    }
-	}
 
 #endif
-    for (int i = 0; i < SNB; i++)
-      for (int j = 0; j < ((1 << LOGSNB) - 1); j++)
-	{
-	  if (!(j & 1))
-	    {
-	      SGEHL[i][j] = -1;
-
-	    }
-	}
-    for (int i = 0; i < TNB; i++)
-      for (int j = 0; j < ((1 << LOGTNB) - 1); j++)
-	{
-	  if (!(j & 1))
-	    {
-	      TGEHL[i][j] = -1;
-
-	    }
-	}
-    for (int i = 0; i < PNB; i++)
-      for (int j = 0; j < ((1 << LOGPNB) - 1); j++)
-	{
-	  if (!(j & 1))
-	    {
-	      PGEHL[i][j] = -1;
-
-	    }
-	}
-
 
     for (int i = 0; i < (1 << LOGB); i++)
       {
 	btable[i].pred = 0;
 	btable[i].hyst = 1;
       }
-
-
-
 
     for (int j = 0; j < (1 << LOGBIAS); j++)
       {
@@ -739,28 +620,23 @@ public:
       }
     for (int i = 0; i < (1 << LOGSIZEUPS); i++)
       {
+	WB[i] = 4;
 	WG[i] = 7;
 	WL[i] = 7;
-	WS[i] = 7;
-	WT[i] = 7;
-	WP[i] = 7;
 	WI[i] = 7;
-	WB[i] = 4;
+	WBW[i] = 7;
+
       }
     TICK = 0;
     for (int i = 0; i < NLOCAL; i++)
       {
 	L_shist[i] = 0;
       }
-    for (int i = 0; i < NSECLOCAL; i++)
-      {
-	S_slhist[i] = 0;
 
-      }
+
     GHIST = 0;
     ptghist = 0;
     phist = 0;
-
   }
 
 
@@ -779,11 +655,10 @@ public:
 
   int F (long long A, int size, int bank)
   {
-    int   A1, A2;
+    int A1, A2;
     A = A & ((1 << size) - 1);
     A1 = (A & ((1 << logg[bank]) - 1));
     A2 = (A >> logg[bank]);
-
     if (bank < logg[bank])
       A2 =
 	((A2 << bank) & ((1 << logg[bank]) - 1)) +
@@ -801,19 +676,22 @@ public:
   {
     int index;
     int M = (m[bank] > PHISTWIDTH) ? PHISTWIDTH : m[bank];
-    index =
-      PC ^ (PC >> (abs (logg[bank] - bank) + 1))
+    index = PC ^ (PC >> (abs (logg[bank] - bank) + 1))
       ^ ch_i[bank].comp ^ F (hist, M, bank);
-
-    return (index & ((1 << (logg[bank])) - 1));
+    return ((index ^ (index >> logg[bank]) ^ (index >> 2 * logg[bank])) &
+	    ((1 << (logg[bank])) - 1));
   }
 
   //  tag computation
-  uint16_t gtag (unsigned int PC, int bank, folded_history * ch0,
-		 folded_history * ch1)
+  uint16_t gtag (unsigned int PC, int bank,
+		 folded_history * ch0, folded_history * ch1)
   {
-    int tag = (PC) ^ ch0[bank].comp ^ (ch1[bank].comp << 1);
-    return (tag & ((1 << (TB[bank])) - 1));
+    int tag = (ch_i[bank - 1].comp << 2) ^ PC  ^(PC>>2) ^ (ch_i[bank].comp);
+    int M = (m[bank] > PHISTWIDTH) ? PHISTWIDTH : m[bank];
+    tag = (tag >> 1) ^ ((tag & 1) << 10) ^ F (phist, M, bank);
+    tag ^= ch0[bank].comp ^ (ch1[bank].comp << 1);
+
+    return ((tag ^ (tag >> TB[bank])) & ((1 << (TB[bank])) - 1));
   }
 
   // up-down saturating counter
@@ -855,9 +733,8 @@ public:
     btable[BI].pred = inter >> 1;
     btable[BI >> HYSTSHIFT].hyst = (inter & 1);
   };
-
 //just a simple pseudo random number generator: use available information
-// to allocate entries  in the loop predictor
+
   int MYRANDOM ()
   {
     Seed++;
@@ -865,10 +742,9 @@ public:
     Seed = (Seed >> 21) + (Seed << 11);
     Seed ^= ptghist;
     Seed = (Seed >> 10) + (Seed << 22);
+    Seed ^= GTAG[BORN + 2];
     return (Seed);
   };
-
-
   //  TAGE PREDICTION: same code at fetch or retire time but the index and tags must recomputed
   void Tagepred (UINT64 PC)
   {
@@ -881,26 +757,24 @@ public:
 	GTAG[i + 1] = GTAG[i];
 	GI[i + 1] = GI[i] ^ (GTAG[i] & ((1 << LOGG) - 1));
       }
-int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
-//int T = (PC ^ phist) % NBANKHIGH;
+
+    uint T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBBANK[1];
     for (int i = BORN; i <= NHIST; i++)
       if (NOSKIP[i])
 	{
 	  GI[i] += (T << LOGG);
 	  T++;
-	  T = T % NBANKHIGH;
-
+	  T = T % NBBANK[1];
 	}
-    T = (PC ^ (phist & ((1 << m[1]) - 1))) % NBANKLOW;
-
+    T = (PC ^ (phist & ((1 << m[1]) - 1))) % NBBANK[0];
     for (int i = 1; i <= BORN - 1; i++)
       if (NOSKIP[i])
 	{
 	  GI[i] += (T << LOGG);
 	  T++;
-	  T = T % NBANKLOW;
-
+	  T = T % NBBANK[0];
 	}
+
 //just do not forget most address are aligned on 4 bytes
     BI = (PC ^ (PC >> 2)) & ((1 << LOGB) - 1);
 
@@ -909,6 +783,7 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
       tage_pred = alttaken;
       LongestMatchPred = alttaken;
     }
+
 
 //Look for the bank with longest matching history
     for (int i = NHIST; i > 0; i--)
@@ -941,56 +816,48 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 	  {
 	    alttaken = (gtable[AltBank][GI[AltBank]].ctr >= 0);
 	    AltConf = (abs (2 * gtable[AltBank][GI[AltBank]].ctr + 1) > 1);
-
 	  }
+
 	else
 	  alttaken = getbim ();
-
 //if the entry is recognized as a newly allocated entry and 
 //USE_ALT_ON_NA is positive  use the alternate prediction
-
 	bool Huse_alt_on_na = (use_alt_on_na[INDUSEALT] >= 0);
 	if ((!Huse_alt_on_na)
 	    || (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) > 1))
 	  tage_pred = LongestMatchPred;
 	else
 	  tage_pred = alttaken;
-
 	HighConf =
 	  (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) >=
 	   (1 << CWIDTH) - 1);
 	LowConf = (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) == 1);
 	MedConf = (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) == 5);
-
       }
+
+
+
+
   }
-
-
+  int THRES;
 //compute the prediction
   bool GetPrediction (UINT64 PC)
   {
 // computes the TAGE table addresses and the partial tags
-
-
     Tagepred (PC);
     pred_taken = tage_pred;
 #ifndef SC
     return (tage_pred);
 #endif
-
 #ifdef LOOPPREDICTOR
     predloop = getloop (PC);	// loop prediction
     pred_taken = ((WITHLOOP >= 0) && (LVALID)) ? predloop : pred_taken;
 #endif
     pred_inter = pred_taken;
-
 //Compute the SC prediction
-
     LSUM = 0;
-
 //integrate BIAS prediction   
     int8_t ctr = Bias[INDBIAS];
-
     LSUM += (2 * ctr + 1);
     ctr = BiasSK[INDBIASSK];
     LSUM += (2 * ctr + 1);
@@ -1000,42 +867,36 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
     LSUM = (1 + (WB[INDUPDS] >= 0)) * LSUM;
 #endif
 //integrate the GEHL predictions
-    LSUM +=
-      Gpredict ((PC << 1) + pred_inter, GHIST, Gm, GGEHL, GNB, LOGGNB, WG);
-    LSUM += Gpredict (PC, phist, Pm, PGEHL, PNB, LOGPNB, WP);
+
+#ifdef GSC
+    LSUM += Gpredict (PC, GHIST, Gm, GGEHL, GNB, LOGGNB, WG);
+    LSUM += Gpredict (PC, BWHIST, BWm, BWGEHL, BWNB, LOGBWNB, WBW);
+#endif
 #ifdef LOCALH
     LSUM += Gpredict (PC, L_shist[INDLOCAL], Lm, LGEHL, LNB, LOGLNB, WL);
-#ifdef LOCALS
-    LSUM += Gpredict (PC, S_slhist[INDSLOCAL], Sm, SGEHL, SNB, LOGSNB, WS);
 #endif
-#ifdef LOCALT
-    LSUM += Gpredict (PC, T_slhist[INDTLOCAL], Tm, TGEHL, TNB, LOGTNB, WT);
-#endif
-#endif
-
 #ifdef IMLI
-    LSUM +=
-      Gpredict (PC, IMHIST[(IMLIcount)], IMm, IMGEHL, IMNB, LOGIMNB, WIM);
     LSUM += Gpredict (PC, IMLIcount, Im, IGEHL, INB, LOGINB, WI);
+
 #endif
     bool SCPRED = (LSUM >= 0);
-//just  an heuristic if the respective contribution of component groups can be multiplied by 2 or not
-    THRES = (updatethreshold>>3)+Pupdatethreshold[INDUPD]
+    THRES = Pupdatethreshold[INDUPD] + (updatethreshold>>3);
+    
 #ifdef VARTHRES
-      + 12 * ((WB[INDUPDS] >= 0) + (WP[INDUPDS] >= 0)
+      + 6 * ((WB[INDUPDS] >= 0)
 #ifdef LOCALH
-	      + (WS[INDUPDS] >= 0) + (WT[INDUPDS] >= 0) + (WL[INDUPDS] >= 0)
+	     + (WL[INDUPDS] >= 0)
 #endif
-	      + (WG[INDUPDS] >= 0)
+#ifdef GSC
+	     + (WG[INDUPDS] >= 0) + (WBW[INDUPDS] >= 0)
+#endif
 #ifdef IMLI
-	      + (WI[INDUPDS] >= 0)
+	     + (WI[INDUPDS] >= 0)
 #endif
       )
 #endif
       ;
-
-    //Minimal benefit in trying to avoid accuracy loss on low confidence SC prediction and  high/medium confidence on TAGE
-    // but just uses 2 counters 0.3 % MPKI reduction
+    //Minimal benefit in trying to exploit high confidence on TAGE
     if (pred_inter != SCPRED)
       {
 //Choser uses TAGE confidence and |LSUM|
@@ -1056,7 +917,6 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 	    {
 	      pred_taken = (FirstH < 0) ? SCPRED : pred_inter;
 	    }
-
       }
 
     return pred_taken;
@@ -1067,6 +927,7 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 		      folded_history * H, folded_history * G,
 		      folded_history * J)
   {
+
     int brtype = 0;
 
     switch (opType)
@@ -1105,15 +966,11 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
     int maxt = 2;
     if (brtype & 1)
       maxt = 2;
-    else if ((brtype & 2) )
+    else if (brtype & 2)
       maxt = 3;
-
 #ifdef IMLI
     if (brtype & 1)
       {
-#ifdef IMLI
-	IMHIST[IMLIcount] = (IMHIST[IMLIcount] << 1) + taken;
-#endif
 	if (target < PC)
 
 	  {
@@ -1122,6 +979,7 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 	      {
 //exit of the "loop"
 		IMLIcount = 0;
+
 
 	      }
 	    if (taken)
@@ -1132,28 +990,24 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 	      }
 	  }
       }
-
-
 #endif
+
 
     if (brtype & 1)
       {
-	GHIST = (GHIST << 1) + (taken & (target < PC));
-	L_shist[INDLOCAL] = (L_shist[INDLOCAL] << 1) + (taken);
-	S_slhist[INDSLOCAL] =
-	  ((S_slhist[INDSLOCAL] << 1) + taken) ^ (PC & 15);
-	T_slhist[INDTLOCAL] = (T_slhist[INDTLOCAL] << 1) + taken;
+	BWHIST = (BWHIST << 1) + ((target < PC) & taken);
+	GHIST = (GHIST << 1) + ( taken);
+	L_shist[INDLOCAL] = (L_shist[INDLOCAL] << 1) + taken;
       }
 
-
-    int T = ((PC ^ (PC >> 2))) ^ taken;
-    int PATH = PC ^ (PC >> 2) ^ (PC >> 4);
-    if ((brtype == 3) & taken)
-      {
-	T = (T ^ (target >> 2));
-	PATH = PATH ^ (target >> 2) ^ (target >> 4);
-      }
-
+   int T = ((PC ^ (PC >> 2))) ^ taken;
+   int PATH = PC ^ (PC >> 2) ^ (PC>>4);
+   if ((brtype == 3) & taken)
+   {
+        T= (T ^ (target >>2));
+        PATH= PATH ^ (target >>2) ^ (target >> 4);
+   }
+   
     for (int t = 0; t < maxt; t++)
       {
 	bool DIR = (T & 1);
@@ -1164,30 +1018,24 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 	Y--;
 	ghist[Y & (HISTBUFFERLENGTH - 1)] = DIR;
 	X = (X << 1) ^ PATHBIT;
-
-
 	for (int i = 1; i <= NHIST; i++)
 	  {
 
 	    H[i].update (ghist, Y);
 	    G[i].update (ghist, Y);
 	    J[i].update (ghist, Y);
-
-
 	  }
       }
 
-    X = (X & ((1<<PHISTWIDTH)-1));
-    
+
 //END UPDATE  HISTORIES
   }
 
 // PREDICTOR UPDATE
 
-  void UpdatePredictor (UINT64 PC, OpType opType, bool resolveDir,
-			bool predDir, UINT64 branchTarget)
+  void UpdatePredictor (UINT64 PC, OpType opType,
+			bool resolveDir, bool predDir, UINT64 branchTarget)
   {
-
 
 
 #ifdef SC
@@ -1199,7 +1047,6 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
       }
     loopupdate (PC, resolveDir, (pred_taken != resolveDir));
 #endif
-
     bool SCPRED = (LSUM >= 0);
     if (pred_inter != SCPRED)
       {
@@ -1215,19 +1062,22 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 	if ((MedConf))
 	  if ((abs (LSUM) < THRES / 4))
 	    {
-	      ctrupdate (FirstH, (pred_inter == resolveDir), CONFWIDTH);
+
+
+	      ctrupdate (FirstH, (pred_inter == resolveDir), 7);
 	    }
       }
 
     if ((SCPRED != resolveDir) || ((abs (LSUM) < THRES)))
       {
-	{
+		{
 	  if (SCPRED != resolveDir)
-          {Pupdatethreshold[INDUPD] += 1;updatethreshold+=1;
+          {
+               Pupdatethreshold[INDUPD] += 1;updatethreshold+=1;
           }
           
 	  else
-          {Pupdatethreshold[INDUPD] -= 1;updatethreshold -= 1;
+          { Pupdatethreshold[INDUPD] -= 1;updatethreshold -= 1;
           }
           
 
@@ -1241,6 +1091,7 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 //updatethreshold could be negative
 	  if (updatethreshold < -(1 << (WIDTHRES - 1)))
 	    updatethreshold = -(1 << (WIDTHRES - 1));
+          
 	}
 #ifdef VARTHRES
 	{
@@ -1261,46 +1112,30 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 	ctrupdate (Bias[INDBIAS], resolveDir, PERCWIDTH);
 	ctrupdate (BiasSK[INDBIASSK], resolveDir, PERCWIDTH);
 	ctrupdate (BiasBank[INDBIASBANK], resolveDir, PERCWIDTH);
-	Gupdate ((PC << 1) + pred_inter, resolveDir,
-		 GHIST, Gm, GGEHL, GNB, LOGGNB, WG);
-	Gupdate (PC, resolveDir, phist, Pm, PGEHL, PNB, LOGPNB, WP);
+	Gupdate (PC, resolveDir, GHIST, Gm, GGEHL, GNB, LOGGNB, WG);
+	Gupdate (PC, resolveDir, BWHIST, BWm, BWGEHL, BWNB, LOGBWNB, WBW);
 #ifdef LOCALH
-	Gupdate (PC, resolveDir, L_shist[INDLOCAL], Lm, LGEHL, LNB, LOGLNB,
-		 WL);
-#ifdef LOCALS
-	Gupdate (PC, resolveDir, S_slhist[INDSLOCAL], Sm,
-		 SGEHL, SNB, LOGSNB, WS);
+	Gupdate (PC, resolveDir, L_shist[INDLOCAL], Lm, LGEHL, LNB,
+		 LOGLNB, WL);
 #endif
-#ifdef LOCALT
-
-	Gupdate (PC, resolveDir, T_slhist[INDTLOCAL], Tm, TGEHL, TNB, LOGTNB,
-		 WT);
-#endif
-#endif
-
-
 #ifdef IMLI
-	Gupdate (PC, resolveDir, IMHIST[(IMLIcount)], IMm, IMGEHL, IMNB,
-		 LOGIMNB, WIM);
+
 	Gupdate (PC, resolveDir, IMLIcount, Im, IGEHL, INB, LOGINB, WI);
 #endif
-
-
-
       }
 #endif
 
 //TAGE UPDATE
     bool ALLOC = ((tage_pred != resolveDir) & (HitBank < NHIST));
-
-
+    if (pred_taken == resolveDir)
+      if ((MYRANDOM () & 31) != 0)
+	ALLOC = false;
     //do not allocate too often if the overall prediction is correct 
-
     if (HitBank > 0)
       {
 // Manage the selection between longest matching and alternate matching
 // for "pseudo"-newly allocated longest matching entry
-	// this is extremely important for TAGE only, not that important when the overall predictor is implemented 
+// this is extremely important for TAGE only (0.166 MPKI), not that important when the overall predictor is implemented (0.006 MPKI)
 	bool PseudoNewAlloc =
 	  (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) <= 1);
 // an entry is considered as newly allocated if its prediction counter is weak
@@ -1310,14 +1145,11 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 	      ALLOC = false;
 // if it was delivering the correct prediction, no need to allocate a new entry
 //even if the overall prediction was false
-
-
 	    if (LongestMatchPred != alttaken)
 	      {
-		ctrupdate (use_alt_on_na[INDUSEALT], (alttaken == resolveDir),
-			   ALTWIDTH);
+		ctrupdate (use_alt_on_na[INDUSEALT],
+			   (alttaken == resolveDir), ALTWIDTH);
 	      }
-
 
 
 	  }
@@ -1325,83 +1157,72 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 
       }
 
-    if (pred_taken == resolveDir)
-      if ((MYRANDOM () & 31) != 0)
-	ALLOC = false;
-
     if (ALLOC)
       {
-
 	int T = NNN;
 
 	int A = 1;
 	if ((MYRANDOM () & 127) < 32)
 	  A = 2;
 	int Penalty = 0;
+	int TruePen = 0;
 	int NA = 0;
 	int DEP = ((((HitBank - 1 + 2 * A) & 0xffe)) ^ (MYRANDOM () & 1));
-// just a complex formula to chose between X and X+1, when X is odd: sorry
+
 
 	for (int I = DEP; I < NHIST; I += 2)
 	  {
+
+
 	    int i = I + 1;
 	    bool Done = false;
 	    if (NOSKIP[i])
 	      {
-		if (gtable[i][GI[i]].u == 0)
-
+		if ((gtable[i][GI[i]].u == 0))
 		  {
-#define OPTREMP
-// the replacement is optimized with a single u bit: 0.2 %
-#ifdef OPTREMP
-		    if (abs (2 * gtable[i][GI[i]].ctr + 1) <= 3)
-#endif
-		      {
-			gtable[i][GI[i]].tag = GTAG[i];
-			gtable[i][GI[i]].ctr = (resolveDir) ? 0 : -1;
-			NA++;
-			if (T <= 0)
-			  {
-			    break;
-			  }
-			I += 2;
-			Done = true;
-			T -= 1;
-		      }
-#ifdef OPTREMP
-		    else
-		      {
-			if (gtable[i][GI[i]].ctr > 0)
-			  gtable[i][GI[i]].ctr--;
-			else
-			  gtable[i][GI[i]].ctr++;
-		      }
+		    {
 
-#endif
+#define DIPINSP
+#ifdef DIPINSP
 
+		      gtable[i][GI[i]].u = ((MYRANDOM () & 31) == 0);
+// protect randomly from fast replacement
+#endif
+		      gtable[i][GI[i]].tag = GTAG[i];
+		      gtable[i][GI[i]].ctr = (resolveDir) ? 0 : -1;
+		      NA++;
+		      if (T <= 0)
+			{
+			  break;
+			}
+		      I += 2;
+		      T -= 1;
+		    }
 		  }
-
-
-
 		else
 		  {
+#ifdef DIPINSP
+		    if ((gtable[i][GI[i]].u ==
+			 1) & (abs (2 * gtable[i][GI[i]].ctr + 1) == 1))
+		      {
+			if ((MYRANDOM () & 7) == 0)
+			  gtable[i][GI[i]].u = 0;
+		      }
+		    else
+#endif
+		      TruePen++;
 		    Penalty++;
 		  }
-	      }
-
-	    if (!Done)
-	      {
-		i = (I ^ 1) + 1;
-		if (NOSKIP[i])
+		if (!Done)
 		  {
-
-		    if (gtable[i][GI[i]].u == 0)
+		    i = (I ^ 1) + 1;
+		    if (NOSKIP[i])
 		      {
-#ifdef OPTREMP
-			if (abs (2 * gtable[i][GI[i]].ctr + 1) <= 3)
-#endif
-
+			if ((gtable[i][GI[i]].u == 0))
 			  {
+#ifdef DIPINSP
+			    gtable[i][GI[i]].u = ((MYRANDOM () & 31) == 0);
+#endif
 			    gtable[i][GI[i]].tag = GTAG[i];
 			    gtable[i][GI[i]].ctr = (resolveDir) ? 0 : -1;
 			    NA++;
@@ -1412,31 +1233,30 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 			    I += 2;
 			    T -= 1;
 			  }
-#ifdef OPTREMP
+
 			else
 			  {
-			    if (gtable[i][GI[i]].ctr > 0)
-			      gtable[i][GI[i]].ctr--;
+#ifdef DIPINSP
+			    if ((gtable[i][GI[i]].u ==
+				 1) & (abs (2 * gtable[i][GI[i]].ctr + 1) ==
+				       1))
+			      {
+				if ((MYRANDOM () & 7) == 0)
+				  gtable[i][GI[i]].u = 0;
+			      }
 			    else
-			      gtable[i][GI[i]].ctr++;
-			  }
-
 #endif
-
-
-		      }
-		    else
-		      {
-			Penalty++;
+			      TruePen++;
+			    Penalty++;
+			  }
 		      }
 		  }
-
 	      }
-
 	  }
-	TICK += (Penalty - 2 * NA);
 
 
+
+	TICK += (TruePen + Penalty - 5 * NA);
 //just the best formula for the Championship:
 	//In practice when one out of two entries are useful
 	if (TICK < 0)
@@ -1445,30 +1265,45 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 	  {
 
 	    for (int i = 1; i <= BORN; i += BORN - 1)
-	      for (int j = 0; j < SizeTable[i]; j++)
-		gtable[i][j].u >>= 1;
+	      for (int j = 0; j <= NBBANK[i / BORN] * (1 << logg[i]) - 1; j++)
+		{
+
+//                gtable[i][j].u >>= 1;
+/*this is not realistic: in a real processor:    gtable[i][j].u >>= 1;  */
+		  if (gtable[i][j].u > 0)
+		    gtable[i][j].u--;
+		}
 	    TICK = 0;
-
-
 	  }
       }
+
+
+
+
+
 
 //update predictions
     if (HitBank > 0)
       {
 	if (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) == 1)
 	  if (LongestMatchPred != resolveDir)
-
 	    {			// acts as a protection 
 	      if (AltBank > 0)
 		{
+		  if (abs (2 * gtable[AltBank][GI[AltBank]].ctr + 1) == 1)
+		    gtable[AltBank][GI[AltBank]].u = 0;
+		  //just mute from protected to unprotected
 		  ctrupdate (gtable[AltBank][GI[AltBank]].ctr,
 			     resolveDir, CWIDTH);
+		  if (abs (2 * gtable[AltBank][GI[AltBank]].ctr + 1) == 1)
+		    gtable[AltBank][GI[AltBank]].u = 0;
 		}
 	      if (AltBank == 0)
 		baseupdate (resolveDir);
-
 	    }
+	if (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) == 1)
+	  gtable[HitBank][GI[HitBank]].u = 0;
+//just mute from protected to unprotected
 	ctrupdate (gtable[HitBank][GI[HitBank]].ctr, resolveDir, CWIDTH);
 //sign changes: no way it can have been useful
 	if (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) == 1)
@@ -1483,29 +1318,30 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 		      gtable[HitBank][GI[HitBank]].u = 0;
 		    }
 		}
-      }
 
+
+
+      }
     else
       baseupdate (resolveDir);
-
     if (LongestMatchPred != alttaken)
       if (LongestMatchPred == resolveDir)
 	{
+
 	  if (gtable[HitBank][GI[HitBank]].u < (1 << UWIDTH) - 1)
 	    gtable[HitBank][GI[HitBank]].u++;
 	}
 //END TAGE UPDATE
 
 
-    HistoryUpdate (PC, opType, resolveDir, branchTarget,
-		   phist, ptghist, ch_i, ch_t[0], ch_t[1]);
 
 
+    HistoryUpdate (PC, opType, resolveDir,
+		   branchTarget, phist, ptghist, ch_i, ch_t[0], ch_t[1]);
 //END PREDICTOR UPDATE
-
-
   }
-#define GINDEX (((long long) PC) ^ bhist ^ (bhist >> (8 - i)) ^ (bhist >> (16 - 2 * i)) ^ (bhist >> (24 - 3 * i)) ^ (bhist >> (32 - 3 * i)) ^ (bhist >> (40 - 4 * i))) & ((1 << (logs - (i >= (NBR - 2)))) - 1)
+
+#define GINDEX (((long long) PC) ^ bhist ^ (bhist >> (8 - i)) ^ (bhist >> (16 - 2 * i)) ^ (bhist >> (24 - 3 * i)) ^ (bhist >> (32 - 3 * i)) ^ (bhist >> (40 - 4 * i))) & ((1 << logs ) - 1)
   int Gpredict (UINT64 PC, long long BHIST, int *length,
 		int8_t ** tab, int NBR, int logs, int8_t * W)
   {
@@ -1514,30 +1350,24 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
       {
 	long long bhist = BHIST & ((long long) ((1 << length[i]) - 1));
 	long long index = GINDEX;
-
 	int8_t ctr = tab[i][index];
-
-	PERCSUM += (2 * ctr + 1);
-
-
+	  PERCSUM += (2 * ctr + 1);
       }
 #ifdef VARTHRES
     PERCSUM = (1 + (W[INDUPDS] >= 0)) * PERCSUM;
 #endif
     return ((PERCSUM));
   }
-  void Gupdate (UINT64 PC, bool taken, long long BHIST, int *length,
-		int8_t ** tab, int NBR, int logs, int8_t * W)
+  void Gupdate (UINT64 PC, bool taken, long long BHIST,
+		int *length, int8_t ** tab, int NBR, int logs, int8_t * W)
   {
 
     int PERCSUM = 0;
-
     for (int i = 0; i < NBR; i++)
       {
 	long long bhist = BHIST & ((long long) ((1 << length[i]) - 1));
 	long long index = GINDEX;
-
-	PERCSUM += (2 * tab[i][index] + 1);
+       	PERCSUM += (2 * tab[i][index] + 1);
 	ctrupdate (tab[i][index], taken, PERCWIDTH);
       }
 #ifdef VARTHRES
@@ -1554,14 +1384,10 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 		       UINT64 branchTarget)
   {
 
-
     HistoryUpdate (PC, opType, taken, branchTarget, phist,
 		   ptghist, ch_i, ch_t[0], ch_t[1]);
 
-
-
   }
-
 #ifdef LOOPPREDICTOR
   int lindex (UINT64 PC)
   {
@@ -1576,34 +1402,27 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
   bool getloop (UINT64 PC)
   {
     LHIT = -1;
-
     LI = lindex (PC);
     LIB = ((PC >> (LOGL - 2)) & ((1 << (LOGL - 2)) - 1));
     LTAG = (PC >> (LOGL - 2)) & ((1 << 2 * LOOPTAG) - 1);
     LTAG ^= (LTAG >> LOOPTAG);
     LTAG = (LTAG & ((1 << LOOPTAG) - 1));
-
     for (int i = 0; i < 4; i++)
       {
 	int index = (LI ^ ((LIB >> i) << 2)) + i;
-
 	if (ltable[index].TAG == LTAG)
 	  {
 	    LHIT = i;
 	    LVALID = ((ltable[index].confid == CONFLOOP)
 		      || (ltable[index].confid * ltable[index].NbIter > 128));
-
-
 	    if (ltable[index].CurrentIter + 1 == ltable[index].NbIter)
 	      return (!(ltable[index].dir));
 	    return ((ltable[index].dir));
-
 	  }
       }
 
     LVALID = false;
     return (false);
-
   }
 
 
@@ -1624,7 +1443,6 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 		ltable[index].confid = 0;
 		ltable[index].CurrentIter = 0;
 		return;
-
 	      }
 	    else if ((predloop != tage_pred) || ((MYRANDOM () & 7) == 0))
 	      if (ltable[index].age < CONFLOOP)
@@ -1676,10 +1494,8 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 
       }
     else if (ALLOC)
-
       {
 	UINT64 X = MYRANDOM () & 3;
-
 	if ((MYRANDOM () & 3) == 0)
 	  for (int i = 0; i < 4; i++)
 	    {
@@ -1695,7 +1511,6 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 		  ltable[index].confid = 0;
 		  ltable[index].CurrentIter = 0;
 		  break;
-
 		}
 	      else
 		ltable[index].age--;
@@ -1704,8 +1519,10 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
       }
   }
 #endif
-};
 
+
+
+};
 #include "branchstatistics.h"
 
 class PREDICTOR *myPred;
@@ -1724,6 +1541,4 @@ void O3_CPU::last_branch_result(uint64_t ip, uint8_t taken, uint8_t branch_type,
 	OpType type = ConvertToOptype(branch_type);
 	myPred->UpdatePredictor(ip, type, taken, myPred->GetPrediction(ip), branch_target);
 }
-
-
 #endif
