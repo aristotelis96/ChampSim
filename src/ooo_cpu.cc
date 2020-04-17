@@ -383,15 +383,17 @@ void O3_CPU::read_from_trace()
 
                   DP(if (warmup_complete[cpu]) { cout << "[BRANCH] instr_id: " << instr_unique_id << " ip: " << hex << arch_instr.ip << dec << " taken: " << +arch_instr.branch_taken << endl; });
 
-                  num_branch++;
-
+                  num_branch++;                
                   // handle branch prediction & branch predictor update
                   uint8_t branch_prediction = predict_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip);
                   /* Uncomment next line for Perfect Branch Prediction */
                   //branch_prediction = IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken;
-                  
-                  /* if perfect H2P log file is given and we are NOT counting H2P now, then predict H2P perfectly */
-                  if(!doH2P && perfect_H2P_file != ""){
+                  /* If using seperate predictor for H2Ps predict if this is a H2P branch */
+                  if (H2P_predictor){
+                      branch_prediction = predict_H2P_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip);
+                  }
+                  /* if perfect H2P log file is given and we are NOT counting H2P now OR predicting H2Ps, then predict H2P perfectly */
+                  if(!(doH2P || H2P_predictor) && perfect_H2P_file != ""){
                       if(branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){
                         branch_prediction = IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken;
                       }
@@ -416,8 +418,18 @@ void O3_CPU::read_from_trace()
                           instrs_to_read_this_cycle = 0;
                       }
                   }
-
-                  last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_type, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_target);
+                  /* If using seperate Predictor for H2Ps, update predictors accordingly */
+                  if (H2P_predictor && perfect_H2P_file != ""){
+                    if(branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)) { //H2p Predictor Update
+                        last_H2P_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_type, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_target);                                                
+                    }
+                    else { // Common predictor update
+                        last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_type, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_target);     
+                    }
+                  }
+                  else { // else update single predictor
+                   last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_type, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_target);
+                  }
                   /* THIS SECTION IS FOR BRANCH STATISTICS */
                   if(warmup_complete[cpu] && doH2P){
                     branchstats->add(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken == branch_prediction);

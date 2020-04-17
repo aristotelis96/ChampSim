@@ -7,6 +7,7 @@
 #include "branchstatistics.h"
 BRANCHSTATISTICS *branchstats;
 bool doH2P;
+bool H2P_predictor;
 string perfect_H2P_file;
 
 uint8_t warmup_complete[NUM_CPUS], 
@@ -509,7 +510,7 @@ int main(int argc, char** argv)
     misspredictions = -1;
     reset_window = -1;       
     uint8_t show_IPs = 0;
-
+    H2P_predictor = false;
     // path to H2P IPs log file
     perfect_H2P_file = "";
 
@@ -529,13 +530,14 @@ int main(int argc, char** argv)
             {"occurrences",  optional_argument, 0, 'o'},
             {"misspredictions",  optional_argument, 0, 'm'},
             {"reset_window", optional_argument, 0, 'r'},
+            {"H2P_predictor", no_argument, 0, 'P'},
             {"traces",  no_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
 
-        c = getopt_long_only(argc, argv, "wihIsbHaomr", long_options, &option_index);
+        c = getopt_long_only(argc, argv, "wihIsbHaomrP", long_options, &option_index);
         // no more option characters
         if (c == -1)
             break;
@@ -576,6 +578,9 @@ int main(int argc, char** argv)
                 break;
             case 'r':
                 reset_window = atol(optarg) ;
+                break;
+            case 'P':
+                H2P_predictor = true;
                 break;
             case 't':
                 traces_encountered =  1;
@@ -625,8 +630,8 @@ int main(int argc, char** argv)
         branchstats = new BRANCHSTATISTICS(accuracy, occurrences, misspredictions, reset_window);
 
     }
-    // If you have path for H2P log file and NOT trying to find new H2Ps, then read log file and get H2P from there
-    if (perfect_H2P_file != "" && !doH2P){
+    // If you have path for H2P log file and NOT trying to find new H2Ps OR seperate Pred for H2Ps, then read log file and get H2P from there
+    if (perfect_H2P_file != "" && !(doH2P || H2P_predictor)){
         ifstream H2P_file(perfect_H2P_file);
         if(!H2P_file.good()){
             cout << "H2P LOG FILE DOES NOT EXIST" << endl;
@@ -648,7 +653,29 @@ int main(int argc, char** argv)
         cout << "Hard-to-Predict branches will be 100% accurate based on file: " << endl;
         cout << perfect_H2P_file << endl;
     }
-
+    // If want to use secondary TAGE8KB predictor specifically for H2Ps found in previous runs
+    if (H2P_predictor && perfect_H2P_file != ""){
+        ifstream H2P_file(perfect_H2P_file);
+        if(!H2P_file.good()){
+            cout << "H2P LOG FILE DOES NOT EXIST" << endl;
+            assert(false);
+        }
+        // Use branchstats only as a data structure for H2Ps
+        branchstats = new BRANCHSTATISTICS();
+        //skip log file information
+        string line;
+        while (getline(H2P_file, line)){
+            if(!line.find("IPs of H2P found:")){
+                break;
+            }                        
+        }
+        // add h2p ips in data structure
+        while(getline(H2P_file, line)){
+            branchstats->add(strtoull(line.c_str(), NULL, 0));
+        }
+        cout << "Hard-to-Predict branches will be predicted using Tage8KB. Reading H2Ps from: " << endl;
+        cout << perfect_H2P_file << endl;
+    }
     // search through the argv for "-traces"
     int found_traces = 0;
     int count_traces = 0;
@@ -736,6 +763,9 @@ int main(int argc, char** argv)
 
         // BRANCH PREDICTOR
         ooo_cpu[i].initialize_branch_predictor();
+        if(H2P_predictor){
+            ooo_cpu[i].initialize_H2P_branch_predictor();
+        }
         // TLBs
         ooo_cpu[i].ITLB.cpu = i;
         ooo_cpu[i].ITLB.cache_type = IS_ITLB;

@@ -108,4 +108,5 @@ class BRANCHSTATISTICS {
 extern BRANCHSTATISTICS *branchstats;
 extern bool doH2P;
 extern string perfect_H2P_file;
+extern bool H2P_predictor;
 #endif

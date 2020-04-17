@@ -231,9 +231,11 @@ class O3_CPU {
     uint32_t check_and_add_lsq(uint32_t rob_index);
 
     // branch predictor
-    uint8_t predict_branch(uint64_t ip);
+    uint8_t predict_branch(uint64_t ip), predict_H2P_branch(uint64_t ip);
     void    initialize_branch_predictor(),
-            last_branch_result(uint64_t ip, uint8_t taken, uint8_t branch_type, uint64_t branch_target); 
+            last_branch_result(uint64_t ip, uint8_t taken, uint8_t branch_type, uint64_t branch_target),
+            initialize_H2P_branch_predictor(),
+            last_H2P_branch_result(uint64_t ip, uint8_t taken, uint8_t branch_type, uint64_t branch_target); 
 };
 
 extern O3_CPU ooo_cpu[NUM_CPUS];
