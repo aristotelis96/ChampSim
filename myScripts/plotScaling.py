@@ -4,11 +4,11 @@ import os
 
 
 
-averageIPC = {"Perfect_H2P":[], "PB":[], "TAGE":[]}
+averageIPC = {"Perfect_H2P":[], "PB":[], "TAGE8":[], "TAGE64":[]}
 
 benchs = ['600.perlbench_s', '605.mcf_s', '620.omnetpp_s', '623.xalancbmk_s', '625.x264_s', '631.deepsjeng_s', '641.leela_s', '648.exchange2_s', '657.xz_s']
 
-branches = ["Perfect_H2P", "PB", "TAGE"]
+branches = ["TAGE8", "TAGE64", "Perfect_H2P", "PB"]
 
 #get Weights for each simpoint
 weight_DIR="C:/Users/Aristotelis/Desktop/diploma/weights-and-simpoints-speccpu"
@@ -24,12 +24,12 @@ for bench in benchs:
         weights[bench].append([sim.readline()[:-1], float(line)])
 
 #calculate for each branch
+base={}
 for branch in branches:
     scales=os.listdir("./scalingResults/"+branch)    
-    #for each scale (x01, x02, x04 etc)
-    
+    #for each scale (x01, x02, x04 etc)    
     for scale in scales:    
-        totalAverage=0
+        totalAverage=1
         for bench in benchs:
             # each bench has several weights/simpoints
             for weight in weights[bench]:
@@ -41,37 +41,45 @@ for branch in branches:
                         if line.startswith("CPU 0 cumulative IPC:"):
                             line = line.split()
                             numerator+=float(line[4])*weight[1]
-                            denominator+=weight[1]
-
-            totalAverage+=numerator/denominator
-
-        totalAverage=totalAverage/(len(benchs))
+                            denominator+=weight[1]    
+            #totalAverage=numerator/denominator
+            if(scale=="x01_tage8"):
+                base[bench] = numerator/denominator
+                totalAverage = 1
+            else:
+               totalAverage *= (numerator/denominator)/base[bench]
+        totalAverage=totalAverage**(1/float(len(benchs)))
+        print(branch, totalAverage)
         averageIPC[branch].append(totalAverage)
 print(averageIPC)
+print(base)
 ind = np.arange(len(scales))
 width = 0.35
 
-p3 = plt.bar(ind, averageIPC["PB"], width, color='blue')
-p2 = plt.bar(np.arange(4), averageIPC["Perfect_H2P"], width, color='lime')
-p1 = plt.bar(ind, averageIPC["TAGE"], width, color='silver')
+p4 = plt.bar(ind, averageIPC["PB"], width, color='blue')
+p3 = plt.bar(np.arange(4), averageIPC["Perfect_H2P"], width, color='lime')
+p2 = plt.bar(ind, averageIPC["TAGE64"], width, color='orange')
+p1 = plt.bar(ind, averageIPC["TAGE8"], width, color='silver')
 
-plt.legend([p3,p2,p1],["Perfect Branch Prediction","Perfect H2P","TAGE-SC-L-8KB"])
+plt.legend([p4,p3,p2,p1],["Perfect Branch Prediction","Perfect H2P","TAGE-SC-L-64KB","TAGE-SC-L-8KB"])
+
 
 plt.xticks(ind, [i[0:3] for i in scales])
-plt.yticks(np.arange(1.0,2.8,0.25))
-plt.ylim(1.0, 2.5)
+plt.yticks(np.arange(1,2.5,0.25))
+plt.ylim(1, 2.5)
 ax = plt.axes()
 ax.yaxis.grid(True)
 plt.title("Average for all benchmarks")
-plt.ylabel("IPC")
+plt.ylabel("IPC relative to x01-TAGE-8KB")
 plt.xlabel("Pipeline capacity scaling")
-plt.savefig("./graphs/all_average.png")
-
+#plt.savefig("./graphs/all_average.png")
+plt.show()
 plt.clf() #clear
 
 #plot for each benchmark
+base={}
 for bench in benchs:
-    IPC = {"PB":[], "TAGE":[], "Perfect_H2P":[]}
+    IPC = {"PB":[], "TAGE8":[], "Perfect_H2P":[], "TAGE64":[]}
     for branch in branches:
         scales=os.listdir("./scalingResults/"+branch)
         for scale in scales:
@@ -85,7 +93,12 @@ for bench in benchs:
                             line = line.split()
                             numerator+=float(line[4])*weight[1]
                             denominator+=weight[1]
-            IPC[branch].append(numerator/denominator)
+            if(scale=="x01_tage8"):
+                base[bench] = numerator/denominator
+                IPC[branch].append(1)
+            else:
+               IPC[branch].append(numerator/(denominator*base[bench]))
+            #IPC[branch].append(numerator/denominator)
     plt.clf() #clear
 
     ind = np.arange(len(scales))
@@ -93,17 +106,17 @@ for bench in benchs:
 
     p3 = plt.bar(ind, IPC["PB"], width, color='blue')
     p2 = plt.bar(np.arange(4), IPC["Perfect_H2P"], width, color='lime')
-    p1 = plt.bar(ind, IPC["TAGE"], width, color='silver')
-
-    plt.legend([p3,p2,p1],["Perfect Branch Prediction","Perfect H2P","TAGE-SC-L-8KB"])
+    p2 = plt.bar(ind, IPC["TAGE64"], width, color='orange')
+    p1 = plt.bar(ind, IPC["TAGE8"], width, color='silver')
+    plt.legend([p3,p2,p1],["Perfect Branch Prediction","Perfect H2P","TAGE-SC-L-64KB","TAGE-SC-L-8KB"])
 
     plt.xticks(ind, [i[0:3] for i in scales])
-    plt.yticks(np.linspace(min(IPC["PB"]+IPC["TAGE"]+IPC["Perfect_H2P"])-0.2, max(IPC["PB"]+IPC["TAGE"]+IPC["Perfect_H2P"])+0.2,10))
-    plt.ylim(min(IPC["PB"]+IPC["TAGE"]+IPC["Perfect_H2P"])-0.2, max(IPC["PB"]+IPC["TAGE"]+IPC["Perfect_H2P"])+0.2)
+    plt.yticks(np.linspace(1, max(IPC["TAGE8"]+IPC["PB"]+IPC["TAGE64"]+IPC["Perfect_H2P"])+0.2,10))
+    plt.ylim(1, max(IPC["PB"]+IPC["TAGE64"]+IPC["TAGE8"]+IPC["Perfect_H2P"])+0.2)
     ax = plt.axes()
     ax.yaxis.grid(True)
     plt.title(bench)
-    plt.ylabel("IPC")
+    plt.ylabel("IPC relative to x01-TAGE-8KB")
     plt.xlabel("Pipeline capacity scaling")
-    plt.savefig("./graphs/"+bench.replace(".txt", "")+".png")
-
+    #plt.savefig("./graphs/"+bench.replace(".txt", "")+".png")
+    plt.show()
