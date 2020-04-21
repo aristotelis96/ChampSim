@@ -388,8 +388,9 @@ void O3_CPU::read_from_trace()
                   uint8_t branch_prediction = predict_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip);
                   /* Uncomment next line for Perfect Branch Prediction */
                   //branch_prediction = IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken;
+                  
                   /* If using seperate predictor for H2Ps predict if this is a H2P branch */
-                  if (H2P_predictor){
+                  if (H2P_predictor && branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){
                       branch_prediction = predict_H2P_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip);
                   }
                   /* if perfect H2P log file is given and we are NOT counting H2P now OR predicting H2Ps, then predict H2P perfectly */
