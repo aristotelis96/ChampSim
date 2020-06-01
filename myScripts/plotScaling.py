@@ -4,11 +4,11 @@ import os
 
 
 
-averageIPC = {"Perfect_H2P":[], "PB":[], "TAGE8":[], "TAGE64":[]}
+averageIPC = {"TAGE8":[], "TAGE64":[], "PB": [], "Perfect_H2P_TAGE64":[]}
 
 benchs = ['600.perlbench_s', '605.mcf_s', '620.omnetpp_s', '623.xalancbmk_s', '625.x264_s', '631.deepsjeng_s', '641.leela_s', '648.exchange2_s', '657.xz_s']
 
-branches = ["TAGE8", "TAGE64", "Perfect_H2P", "PB"]
+branches = ["TAGE8", "TAGE64", "Perfect_H2P_TAGE64", "PB"]
 
 #get Weights for each simpoint
 weight_DIR="C:/Users/Aristotelis/Desktop/diploma/weights-and-simpoints-speccpu"
@@ -57,11 +57,11 @@ ind = np.arange(len(scales))
 width = 0.35
 
 p4 = plt.bar(ind, averageIPC["PB"], width, color='blue')
-p3 = plt.bar(np.arange(4), averageIPC["Perfect_H2P"], width, color='lime')
+p3 = plt.bar(np.arange(4), averageIPC["Perfect_H2P_TAGE64"], width, color='lime')
 p2 = plt.bar(ind, averageIPC["TAGE64"], width, color='orange')
 p1 = plt.bar(ind, averageIPC["TAGE8"], width, color='silver')
 
-plt.legend([p4,p3,p2,p1],["Perfect Branch Prediction","Perfect H2P","TAGE-SC-L-64KB","TAGE-SC-L-8KB"])
+plt.legend([p4,p3,p2,p1],["PB","Perfect_H2P_TAGE64","TAGE-SC-L-64KB","TAGE-SC-L-8KB"])
 
 
 plt.xticks(ind, [i[0:3] for i in scales])
@@ -75,7 +75,7 @@ plt.xlabel("Pipeline capacity scaling")
 #plt.savefig("./graphs/all_average.png")
 plt.show()
 plt.clf() #clear
-
+exit()
 #plot for each benchmark
 base={}
 for bench in benchs:
