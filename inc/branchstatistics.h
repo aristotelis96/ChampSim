@@ -3,6 +3,7 @@
 
 #include <unordered_map>
 #include <fstream>
+#include <list>
 
 using namespace std;
 
@@ -10,6 +11,7 @@ typedef struct stats {
     long long counter;
     long long misspredictions;
 } stats;
+
 
 class BRANCHSTATISTICS {
     private:
@@ -105,8 +107,43 @@ class BRANCHSTATISTICS {
         }
 } ;
 
+typedef struct ip_bool {
+    uint64_t ip;
+    bool taken;
+} ip_bool;
+
+class Branch_History {
+    private:
+        list<ip_bool> IPs;
+
+    public:
+        // Constructor
+        ;
+        //Destructor
+        ;
+        void add_branch(uint64_t ip, bool taken){
+            // add pair of IP - Outcome to list
+            ip_bool entry = {ip, taken};
+            IPs.push_front(entry);
+            // if list is bigger than 200 entries, delete last entry
+            if(IPs.size()>200){
+                IPs.pop_back();
+            }
+        }
+        void print_history(){
+            for (list<ip_bool>::iterator it = IPs.begin(); it != IPs.end(); it++){
+                cout << it->ip << " " << it->taken << endl;
+            }
+        }
+        
+};
+
+
 extern BRANCHSTATISTICS *branchstats;
+extern Branch_History *branch_history;
 extern bool doH2P;
 extern string perfect_H2P_file;
 extern bool H2P_predictor;
+extern bool perfect_H2P;
+extern bool collect_H2P_dataset;
 #endif

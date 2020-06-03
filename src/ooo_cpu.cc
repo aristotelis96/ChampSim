@@ -393,8 +393,8 @@ void O3_CPU::read_from_trace()
                   if (H2P_predictor && branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){
                       branch_prediction = predict_H2P_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip);
                   }
-                  /* if perfect H2P log file is given and we are NOT counting H2P now OR predicting H2Ps, then predict H2P perfectly */
-                  if(!(doH2P || H2P_predictor) && perfect_H2P_file != ""){
+                  /* if perfect H2P log file is given and we are flag for PefectH2P is set, then predict H2P perfectly */
+                  if(perfect_H2P && perfect_H2P_file != ""){
                       if(branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){
                         branch_prediction = IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken;
                       }
@@ -430,6 +430,17 @@ void O3_CPU::read_from_trace()
                   }
                   else { // else update single predictor
                    last_branch_result(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_type, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_target);
+                  }
+                  /* if collecting dataset then output history every time you encounter H2P branch */
+                  if (collect_H2P_dataset && perfect_H2P_file != ""){
+                      // print history of branch, if it is a h2p
+                      if(branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){
+                          cout << "--- H2P ---" << endl;
+                          cout << IFETCH_BUFFER.entry[ifetch_buffer_index].ip << " " << (int)IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken << endl;
+                          branch_history->print_history();
+                      }
+                      // update history dataset
+                      branch_history->add_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken);
                   }
                   /* THIS SECTION IS FOR BRANCH STATISTICS */
                   if(warmup_complete[cpu] && doH2P){

@@ -6,8 +6,11 @@
 #include <fstream>
 #include "branchstatistics.h"
 BRANCHSTATISTICS *branchstats;
+Branch_History *branch_history;
 bool doH2P;
 bool H2P_predictor;
+bool perfect_H2P;
+bool collect_H2P_dataset;
 string perfect_H2P_file;
 
 uint8_t warmup_complete[NUM_CPUS], 
@@ -511,6 +514,8 @@ int main(int argc, char** argv)
     reset_window = -1;       
     uint8_t show_IPs = 0;
     H2P_predictor = false;
+    perfect_H2P = false;
+    collect_H2P_dataset = false;
     // path to H2P IPs log file
     perfect_H2P_file = "";
 
@@ -525,19 +530,21 @@ int main(int argc, char** argv)
             {"show_IPs", no_argument, 0, 'I'},
             {"cloudsuite", no_argument, 0, 'c'},
             {"low_bandwidth",  no_argument, 0, 'b'},
-            {"perfect_H2P", optional_argument, 0, 'H'},
+            {"perfect_H2P", no_argument, 0, 'p'},
+            {"perfect_H2P_file", optional_argument, 0, 'H'},
             {"accuracy",  optional_argument, 0, 'a'},
             {"occurrences",  optional_argument, 0, 'o'},
             {"misspredictions",  optional_argument, 0, 'm'},
             {"reset_window", optional_argument, 0, 'r'},
             {"H2P_predictor", no_argument, 0, 'P'},
+            {"collect_H2P_dataset", no_argument, 0, 'C'},
             {"traces",  no_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
 
-        c = getopt_long_only(argc, argv, "wihIsbHaomrP", long_options, &option_index);
+        c = getopt_long_only(argc, argv, "wihIsbpHaomrPC", long_options, &option_index);
         // no more option characters
         if (c == -1)
             break;
@@ -564,6 +571,9 @@ int main(int argc, char** argv)
             case 'b':
                 knob_low_bandwidth = 1;
                 break;
+            case 'p':
+                perfect_H2P = true;
+                break;
             case 'H':
                 perfect_H2P_file = optarg;
                 break;
@@ -581,6 +591,9 @@ int main(int argc, char** argv)
                 break;
             case 'P':
                 H2P_predictor = true;
+                break;
+            case 'C':
+                collect_H2P_dataset = true;
                 break;
             case 't':
                 traces_encountered =  1;
@@ -630,8 +643,8 @@ int main(int argc, char** argv)
         branchstats = new BRANCHSTATISTICS(accuracy, occurrences, misspredictions, reset_window);
 
     }
-    // If you have path for H2P log file and NOT trying to find new H2Ps OR seperate Pred for H2Ps, then read log file and get H2P from there
-    if (perfect_H2P_file != "" && !(doH2P || H2P_predictor)){
+    // If you have path for H2P log file and predicting perfectly H2P, then read log file and get H2P from there and predict them
+    if (perfect_H2P_file != "" && perfect_H2P){
         ifstream H2P_file(perfect_H2P_file);
         if(!H2P_file.good()){
             cout << "H2P LOG FILE DOES NOT EXIST" << endl;
@@ -674,6 +687,31 @@ int main(int argc, char** argv)
             branchstats->add(strtoull(line.c_str(), NULL, 0));
         }
         cout << "Hard-to-Predict branches will be predicted using Tage8KB. Reading H2Ps from: " << endl;
+        cout << perfect_H2P_file << endl;
+    }
+
+    // if you are collecting dataset AND you have file with H2Ps then print history of 200 branches every time you encounter H2P
+    if (collect_H2P_dataset && perfect_H2P_file != ""){
+        ifstream H2P_file(perfect_H2P_file);
+        if(!H2P_file.good()){
+            cout << "H2P LOG FILE DOES NOT EXIST" << endl;
+            assert(false);
+        }
+        // Use branchstats only as a data structure for H2Ps
+        branchstats = new BRANCHSTATISTICS();
+        //skip log file information
+        string line;
+        while (getline(H2P_file, line)){
+            if(!line.find("IPs of H2P found:")){
+                break;
+            }                        
+        }
+        // add h2p ips in data structure
+        while(getline(H2P_file, line)){
+            branchstats->add(strtoull(line.c_str(), NULL, 0));
+        }
+        branch_history = new Branch_History();
+        cout << "Hard-to-Predict branches will be logged based on file: " << endl;
         cout << perfect_H2P_file << endl;
     }
     // search through the argv for "-traces"
