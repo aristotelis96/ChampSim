@@ -2,10 +2,30 @@
 #define BRANCHSTATISTICS_H
 
 #include <unordered_map>
+#include <iostream>
 #include <fstream>
 #include <list>
+#include <unordered_set>
+#include <functional>
+
 
 using namespace std;
+
+
+extern bool doH2P;
+extern string perfect_H2P_file;
+extern bool H2P_predictor;
+extern bool perfect_H2P;
+extern bool collect_H2P_dataset;
+extern bool dataset_unique_histories;
+
+/* Hash_Combine function */
+template <class T>
+inline void hash_combine(std::size_t& seed, const T& v)
+{
+    std::hash<T> hasher;
+    seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+}
 
 typedef struct stats {
     long long counter;
@@ -115,7 +135,7 @@ typedef struct ip_bool {
 class Branch_History {
     private:
         list<ip_bool> IPs;
-
+        unordered_set<size_t> unique_hashes;
     public:
         // Constructor
         ;
@@ -130,9 +150,42 @@ class Branch_History {
                 IPs.pop_back();
             }
         }
-        void print_history(){
-            for (list<ip_bool>::iterator it = IPs.begin(); it != IPs.end(); it++){
-                cout << it->ip << " " << it->taken << endl;
+        void print_history(uint64_t h2pIP, bool taken){
+            // check if we already found this specific history
+            // hash the whole history for this H2P branch and check if it has been stored
+            size_t seed = 0;
+            if (dataset_unique_histories){
+                for (list<ip_bool>::iterator it = IPs.begin(); it != IPs.end(); it++){                            
+                    hash_combine(seed, it->ip);
+                    hash_combine(seed, it->taken);
+                }
+            }
+            if (dataset_unique_histories) {
+                if(unique_hashes.find(seed)==unique_hashes.end()){            
+                    // append to file if not in set and add to set
+                    unique_hashes.insert(seed);
+                    ofstream myfile;
+                    myfile.open("test.txt", ios::app);
+                    // Print --- H2P --- and the h2p with its boolean
+                    cout << "--- H2P ---" << endl;
+                    cout << h2pIP << " " << taken << endl;
+                    // Then print history
+                    for (list<ip_bool>::iterator it = IPs.begin(); it != IPs.end(); it++){                    
+                        cout << it->ip << " " << it->taken << endl;
+                    }
+                    myfile.close();
+                }
+            } else{
+                ofstream myfile;
+                myfile.open("test.txt", ios::app);
+                // Print --- H2P --- and the h2p with its boolean
+                cout << "--- H2P ---" << endl;
+                cout << h2pIP << " " << taken << endl;
+                // Then print history
+                for (list<ip_bool>::iterator it = IPs.begin(); it != IPs.end(); it++){                    
+                    cout << it->ip << " " << it->taken << endl;
+                }
+                myfile.close();   
             }
         }
         
@@ -141,9 +194,4 @@ class Branch_History {
 
 extern BRANCHSTATISTICS *branchstats;
 extern Branch_History *branch_history;
-extern bool doH2P;
-extern string perfect_H2P_file;
-extern bool H2P_predictor;
-extern bool perfect_H2P;
-extern bool collect_H2P_dataset;
 #endif

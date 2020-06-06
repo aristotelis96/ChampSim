@@ -434,10 +434,8 @@ void O3_CPU::read_from_trace()
                   /* if collecting dataset then output history every time you encounter H2P branch */
                   if (collect_H2P_dataset && perfect_H2P_file != ""){
                       // print history of branch, if it is a h2p
-                      if(branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){
-                          cout << "--- H2P ---" << endl;
-                          cout << IFETCH_BUFFER.entry[ifetch_buffer_index].ip << " " << (int)IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken << endl;
-                          branch_history->print_history();
+                      if(branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){                          
+                          branch_history->print_history(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, (int)IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken);
                       }
                       // update history dataset
                       branch_history->add_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken);

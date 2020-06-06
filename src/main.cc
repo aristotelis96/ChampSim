@@ -11,6 +11,7 @@ bool doH2P;
 bool H2P_predictor;
 bool perfect_H2P;
 bool collect_H2P_dataset;
+bool dataset_unique_histories;
 string perfect_H2P_file;
 
 uint8_t warmup_complete[NUM_CPUS], 
@@ -516,6 +517,7 @@ int main(int argc, char** argv)
     H2P_predictor = false;
     perfect_H2P = false;
     collect_H2P_dataset = false;
+    dataset_unique_histories = false;
     // path to H2P IPs log file
     perfect_H2P_file = "";
 
@@ -538,13 +540,14 @@ int main(int argc, char** argv)
             {"reset_window", optional_argument, 0, 'r'},
             {"H2P_predictor", no_argument, 0, 'P'},
             {"collect_H2P_dataset", no_argument, 0, 'C'},
+            {"dataset_unique_histories", no_argument, 0, 'u'},
             {"traces",  no_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
 
-        c = getopt_long_only(argc, argv, "wihIsbpHaomrPC", long_options, &option_index);
+        c = getopt_long_only(argc, argv, "wihIsbpHaomrPCu", long_options, &option_index);
         // no more option characters
         if (c == -1)
             break;
@@ -594,6 +597,9 @@ int main(int argc, char** argv)
                 break;
             case 'C':
                 collect_H2P_dataset = true;
+                break;
+            case 'u':
+                dataset_unique_histories = true;
                 break;
             case 't':
                 traces_encountered =  1;
