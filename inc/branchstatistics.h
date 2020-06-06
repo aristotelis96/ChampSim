@@ -153,8 +153,12 @@ class Branch_History {
         void print_history(uint64_t h2pIP, bool taken){
             // check if we already found this specific history
             // hash the whole history for this H2P branch and check if it has been stored
-            size_t seed = 0;
+            size_t seed = 0;            
             if (dataset_unique_histories){
+                // hash H2P ip with boolean value
+                hash_combine(seed, h2pIP);
+                hash_combine(seed, taken);
+                //then hash history of h2p
                 for (list<ip_bool>::iterator it = IPs.begin(); it != IPs.end(); it++){                            
                     hash_combine(seed, it->ip);
                     hash_combine(seed, it->taken);
