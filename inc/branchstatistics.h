@@ -63,8 +63,8 @@ class BRANCHSTATISTICS {
         }
 
         void countH2P_and_clear(){
-            for (unordered_map<uint64_t, stats>::iterator itr = branches.begin(); itr != branches.end(); itr++){                
-                if ((double)itr->second.misspredictions / (double)itr->second.counter <= accuracy && itr->second.counter >= occurrences && itr->second.misspredictions >= misspredictions){
+            for (unordered_map<uint64_t, stats>::iterator itr = branches.begin(); itr != branches.end(); itr++){                  
+                if (1.0-((double)itr->second.misspredictions / (double)itr->second.counter) <= (double)accuracy/100.0 && itr->second.counter >= occurrences && itr->second.misspredictions >= misspredictions){
                     h2p++;                    
                     IPs.push_back(itr->first);
                 }
