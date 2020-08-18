@@ -445,7 +445,9 @@ void O3_CPU::read_from_trace()
                     branchstats->add(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken == branch_prediction);
                   }
               }
-
+              // Count instructions for window reset
+              branchstats->count_instr();
+              
               if ((num_reads >= instrs_to_read_this_cycle) || (IFETCH_BUFFER.occupancy == IFETCH_BUFFER.SIZE))
                   continue_reading = 0;
           }

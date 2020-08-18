@@ -41,14 +41,16 @@ OCCURRENCES=15000
 MISSPREDICTIONS=1000
 RESET_WINDOW=30000000
 
+OUTPUT_FOLDER=correctedWindowReset
+
 task(){
 	TRACE=$1    
 	echo "Now running trace:" $TRACE "For accuracy:" $ACCURACY;	
-	(./bin/TAGE8 -warmup_instructions ${N_WARM} -simulation_instructions ${N_SIM} ${OPTION} -accuracy=${ACCURACY} -occurrences=${OCCURRENCES} -misspredictions=${MISSPREDICTIONS} -reset_window=${RESET_WINDOW} -traces ${TRACE_DIR}/${TRACE}) &>  ./results/H2P/H2P_with_IP_TAGE8/${TRACE}.txt 
+	(./bin/TAGE8_windowReset -warmup_instructions ${N_WARM} -simulation_instructions ${N_SIM} ${OPTION} -accuracy=${ACCURACY} -occurrences=${OCCURRENCES} -misspredictions=${MISSPREDICTIONS} -reset_window=${RESET_WINDOW} -traces ${TRACE_DIR}/${TRACE}) &>  ./results/H2P/${OUTPUT_FOLDER}/${TRACE}.txt 
 }
 
 
-mkdir -p ./results/H2P/H2P_with_IP_TAGE8
+mkdir -p ./results/H2P/${OUTPUT_FOLDER}
 for TRACE in `cat ./myScripts/H2PTraces.txt`; do
     run_with_lock task $TRACE
 done;

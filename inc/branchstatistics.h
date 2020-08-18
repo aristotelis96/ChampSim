@@ -92,7 +92,9 @@ class BRANCHSTATISTICS {
                     // if missprediction, increase miss counter
                     branches[ip].misspredictions++;
                 }
-            }
+            }            
+        }
+        void count_instr(){
             if (reset_window != 0){
                 instr_counter++;
                 if (instr_counter == reset_window){
@@ -100,7 +102,6 @@ class BRANCHSTATISTICS {
                 }
             }
         }
-
         //Method to check if IP is stored
         bool contain(uint64_t ip){
             if (branches.count(ip)>0)
