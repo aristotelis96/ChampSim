@@ -388,7 +388,25 @@ void O3_CPU::read_from_trace()
                   uint8_t branch_prediction = predict_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip);
                   /* Uncomment next line for Perfect Branch Prediction */
                   //branch_prediction = IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken;
-                  
+
+
+                  if(measure_H2P_accuracy){
+                      if(branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){
+                        // total
+                        total_H2P++;
+                        // Map for each H2P 
+                        pair<unordered_map<uint64_t,accuracyStat>::iterator,bool> ret;
+                        accuracyStat stat = {1, 0};
+                        ret = H2PBranches.insert(pair<uint64_t, accuracyStat>(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, stat));
+                        if(ret.second == false){
+                            H2PBranches[IFETCH_BUFFER.entry[ifetch_buffer_index].ip].total++;
+                        }
+                        if(IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken == branch_prediction){
+                            correct_H2P_predicted++;
+                            H2PBranches[IFETCH_BUFFER.entry[ifetch_buffer_index].ip].correct++;
+                        }
+                      }
+                  }
                   /* If using seperate predictor for H2Ps predict if this is a H2P branch */
                   if (H2P_predictor && branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){
                       branch_prediction = predict_H2P_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip);
@@ -445,8 +463,10 @@ void O3_CPU::read_from_trace()
                     branchstats->add(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken == branch_prediction);
                   }
               }
-              // Count instructions for window reset
-              branchstats->count_instr();
+              // Count instructions for window reset (if counting H2Ps)
+              if(warmup_complete[cpu] && doH2P){
+                branchstats->count_instr();
+              }
               
               if ((num_reads >= instrs_to_read_this_cycle) || (IFETCH_BUFFER.occupancy == IFETCH_BUFFER.SIZE))
                   continue_reading = 0;

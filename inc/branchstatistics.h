@@ -7,7 +7,7 @@
 #include <list>
 #include <unordered_set>
 #include <functional>
-
+#include <time.h>
 
 using namespace std;
 
@@ -17,7 +17,17 @@ extern string perfect_H2P_file;
 extern bool H2P_predictor;
 extern bool perfect_H2P;
 extern bool collect_H2P_dataset;
-extern bool dataset_unique_histories;
+extern bool dataset_unique_histories, dataset_random;
+extern bool measure_H2P_accuracy;
+extern long total_H2P, correct_H2P_predicted;
+extern std::string PytorchName;
+
+/* check statistics for each H2P by Tage Predictor */
+typedef struct accuracyStat{
+    long int total;
+    long int correct;
+} accuracyStat;
+extern unordered_map<uint64_t, accuracyStat> H2PBranches;
 
 /* Hash_Combine function */
 template <class T>
@@ -137,9 +147,63 @@ class Branch_History {
     private:
         list<ip_bool> IPs;
         unordered_set<size_t> unique_hashes;
+        unordered_map<uint64_t, long> H2PsStats;
     public:
         // Constructor
-        ;
+        Branch_History(){
+            H2PsStats = {
+                // ------ 600 210B----------
+                // {4226075, 94243},
+                // {4224005, 60603 },
+                // {4976121, 5764991},
+                // {5008304, 1950845},
+                // {4295273, 202885 },
+                // {5004294, 674328 },
+                // {5015393, 2752803},
+                // {5307410, 1464420},
+                // {4957196, 127042 },
+                // {4969208, 108379 },
+                // {4978645, 2626290 },
+                // {4999560, 98430}
+                // -------- 631 ----------------
+                {4198684, 1009548},
+                {4198728, 833737},
+                {4198880, 863879},
+                {4198968, 854544},
+                {4199008, 748933},
+                {4199369, 1039561},
+                {4199399, 1039561},
+                {4199436, 1039561},
+                {4199463, 1039561},
+                {4207717, 5977343},
+                {4207737, 5230741},
+                {4218498, 659098},
+                {4222641, 1241212},
+                {4223266, 1237963},
+                {4223606, 1112473},
+                {4224257, 1241212},
+                {4224568, 1240987},
+                {4224786, 1237972},
+                {4224891, 1238905},
+                {4224901, 1021181},
+                {4238165, 915302},
+                {4238291, 920693},
+                {4238434, 739246},
+                {4238587, 676412},
+                {4238628, 788647},
+                {4246069, 815081},
+                {4246120, 815081},
+                {4246335, 815081},
+                {4250377, 2246534},
+                {4250535, 2263518},
+                {4257928, 1039561},
+                {4258021, 1007615}
+            };
+            // if using random
+            if (dataset_random){
+                srand(time(0));
+            }
+        }   
         //Destructor
         ;
         void add_branch(uint64_t ip, bool taken){
@@ -179,6 +243,24 @@ class Branch_History {
                         cout << it->ip << " " << it->taken << endl;
                     }
                     myfile.close();
+                }
+            } else if (dataset_random){          
+                long h2p_total_occurences = H2PsStats[h2pIP];      
+                double probability = (5000.0 / (double)h2p_total_occurences)*1000;
+                double guess = (double)(rand() % 1000);
+                bool useH2P = (guess) < probability;
+                // if the probability is good, count H2P
+                if (useH2P){
+                    ofstream myfile;
+                    myfile.open("test.txt", ios::app);
+                    // Print --- H2P --- and the h2p with its boolean
+                    cout << "--- H2P ---" << endl;
+                    cout << h2pIP << " " << taken << endl;
+                    // Then print history
+                    for (list<ip_bool>::iterator it = IPs.begin(); it != IPs.end(); it++){                    
+                        cout << it->ip << " " << it->taken << endl;
+                    }
+                    myfile.close();       
                 }
             } else{
                 ofstream myfile;
