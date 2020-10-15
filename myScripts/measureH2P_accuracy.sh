@@ -24,12 +24,15 @@ run_with_lock(){
     )&
 }
 
-OUTPUT_FOLDER=/home/users/avontz/ChampSim/results/H2P/H2P_accuracy_Tage8
+OUTPUT_FOLDER=/home/users/avontz/ChampSim/results/H2P/H2P_accuracy_Tage8/CNN
 H2P_LOG_DIR=/home/users/avontz/ChampSim/results/H2P/correctedWindowReset
 TRACE_DIR=/local/vkarakos/hpca23-traces
 N_WARM=50000000
 N_SIM=2000000000
 OPTION='-hide_heartbeat -measure_H2P_accuracy'
+CNNpt='-pytorch_pt=/home/users/avontz/ChampSim/bin/CNN_trained_5000.pt'
+
+EXECUTABLE=CNN
 
 #Number of CPU for parallel execution
 CPU_NUM=4
@@ -40,11 +43,11 @@ cd /home/users/avontz/ChampSim/
 task(){	
 	TRACE=$1
 	echo "Now running for trace:" $TRACE;	
-	(./bin/measure_H2P_accuracy -warmup_instructions ${N_WARM} -simulation_instructions ${N_SIM} -perfect_H2P_file=${H2P_LOG_DIR}/${TRACE}.txt ${OPTION} -traces ${TRACE_DIR}/${TRACE}) &>  ${OUTPUT_FOLDER}/${TRACE}.txt
+	(./bin/${EXECUTABLE} -warmup_instructions ${N_WARM} -simulation_instructions ${N_SIM} -perfect_H2P_file=${H2P_LOG_DIR}/${TRACE}.txt ${OPTION} ${CNNpt} -traces ${TRACE_DIR}/${TRACE}) &>  ${OUTPUT_FOLDER}/${TRACE}.txt
 }
 
 
-for TRACE in `cat ./myScripts/H2PTraces.txt | grep "631"`; do		
+for TRACE in `cat ./myScripts/H2PTraces.txt | grep "600"`; do		
     	run_with_lock task $TRACE			
         #(./bin/collect_dataset -warmup_instructions ${N_WARM} -simulation_instructions ${N_SIM} -perfect_H2P_file=${H2P_LOG_DIR}/${TRACE}.txt ${OPTION} -traces ${TRACE_DIR}/${TRACE}) &>  ./results/Dataset/${TRACE}._.dataset_unique.txt 
 done;

@@ -30,7 +30,7 @@ open_sem $CPU_NUM
 
 cd /home/users/avontz/ChampSim/
 
-TRACE_DIR=/local/vkarakos/hpca23-traces
+TRACE_DIR=/local/avontz/myTraces/600.perlbench/ref3
 
 N_WARM=50000000
 N_SIM=2000000000
@@ -41,7 +41,7 @@ OCCURRENCES=15000
 MISSPREDICTIONS=1000
 RESET_WINDOW=30000000
 
-OUTPUT_FOLDER=correctedWindowReset
+OUTPUT_FOLDER=myTraces
 
 task(){
 	TRACE=$1    
@@ -51,6 +51,7 @@ task(){
 
 
 mkdir -p ./results/H2P/${OUTPUT_FOLDER}
-for TRACE in `cat ./myScripts/H2PTraces.txt`; do
+#for TRACE in `cat ./myScripts/H2PTraces.txt`; do
+for TRACE in `ls ${TRACE_DIR}`; do
     run_with_lock task $TRACE
 done;

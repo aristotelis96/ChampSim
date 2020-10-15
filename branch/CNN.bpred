@@ -1566,7 +1566,7 @@ class CnnHelper {
            
         };
         
-        bool GetPrediction(uint64_t ip){
+        bool GetPrediction(uint64_t ip){			
             at::Tensor temp = inputs[0].toTensor();
             for (int i=0; i<history.size(); i++){
                 temp[0][i] = history[i];

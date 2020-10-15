@@ -2,7 +2,7 @@
 
 import os
 
-resultsDir='/home/users/avontz/ChampSim/results/H2P/correctedWindowReset/'
+resultsDir='/home/users/avontz/ChampSim/results/H2P/myTraces'
 
 accList=os.listdir(resultsDir)
 accList.sort()
