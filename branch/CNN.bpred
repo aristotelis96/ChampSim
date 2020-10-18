@@ -1536,9 +1536,6 @@ class CnnHelper {
         torch::jit::script::Module module;
         std::vector<torch::jit::IValue> inputs;
         std::deque<int> history;
-		unordered_set<uint64_t> H2Ps = {
-			
-		};
     public :
         CnnHelper(){
 			cout << "Using pt: " << PytorchName << endl;
@@ -1570,14 +1567,6 @@ class CnnHelper {
                 return 0;
             }
         };
-		bool contains(uint64_t ip){
-			if(H2Ps.find(ip)==H2Ps.end()){
-				return false;
-			}
-			else{
-				return true;
-			}
-		}
         void UpdatePredictor(uint64_t ip, uint8_t taken){
             // encoding and adding to vector
             int encodedPC = (ip & 127) << 1;
@@ -1606,7 +1595,7 @@ void O3_CPU::initialize_H2P_branch_predictor()
 }
 uint8_t O3_CPU::predict_branch(uint64_t ip)
 {
-	if(cnnHelper->contains(ip)){
+	if(branchstats->contain(ip)){
 		return cnnHelper->GetPrediction(ip);
 	}    
 	else{

@@ -802,6 +802,30 @@ int main(int argc, char** argv)
         }
         branch_history = new Branch_History();
         cout << "Hard-to-Predict accuracy will be measured based on file: " << endl;
+        cout << perfect_H2P_file << endl ;
+    }
+    // if using neural torch script file for prediction, make sure to include perfect_H2P_file flag
+    // in order to log H2Ps to use for Neural Predictor
+    if(PytorchName!=""){
+        ifstream H2P_file(perfect_H2P_file);
+        if(!H2P_file.good()){
+            cout << "H2P LOG FILE DOES NOT EXIST. Provide H2P file in order to log which H2Ps to use Neural Network predictor for." << endl;
+            assert(false);
+        }
+        // Use branchstats only as a data structure for H2Ps
+        branchstats = new BRANCHSTATISTICS();
+        //skip log file information
+        string line;
+        while (getline(H2P_file, line)){
+            if(!line.find("IPs of H2P found:")){
+                break;
+            }                        
+        }
+        // add h2p ips in data structure
+        while(getline(H2P_file, line)){
+            branchstats->add(strtoull(line.c_str(), NULL, 0));
+        }        
+        cout << endl << PytorchName << " will predict H2Ps found in file:" << endl;
         cout << perfect_H2P_file << endl;
     }
     // search through the argv for "-traces"
