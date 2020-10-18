@@ -1537,18 +1537,7 @@ class CnnHelper {
         std::vector<torch::jit::IValue> inputs;
         std::deque<int> history;
 		unordered_set<uint64_t> H2Ps = {
-			4226075,
-			4224005,
-			4976121,
-			5008304,
-			4295273,
-			5004294,
-			5015393,
-			5307410,
-			4957196,
-			4969208,
-			4978645,
-			4999560
+			
 		};
     public :
         CnnHelper(){
@@ -1558,7 +1547,9 @@ class CnnHelper {
                 module = torch::jit::load(PytorchName);
             }
             catch (const c10::Error& e) {
-                std::cerr << "error loading the model\n";    \
+
+                std::cerr << "error loading the model\n";
+				std::cerr << e.msg();
 				abort();        
             }            
             inputs.push_back(torch::zeros({1,200}));
