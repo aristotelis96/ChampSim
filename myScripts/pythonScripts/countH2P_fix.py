@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
 import os
-
-resultsDir='/home/users/avontz/ChampSim/results/H2P/myTraces'
+import pprint
+pp = pprint.PrettyPrinter()
+resultsDir='/home/users/avontz/ChampSim/results/H2P/correctedWindowReset'
 
 accList=os.listdir(resultsDir)
 accList.sort()
 traces=os.listdir(resultsDir+"/")
 traces.sort()
 for trace in traces:
+    if(not trace.startswith("600")):
+        continue
     h2p = set()
     if (trace=="accRest"):
         continue
@@ -21,5 +24,7 @@ for trace in traces:
             h2p.add(int(line))
 
     print(trace.split("champsim")[0] + " H2P: " + str(len(h2p)))
+    print(trace.split("champsim")[0] + "  --- " )
+    pp.pprint(h2p)
 
         

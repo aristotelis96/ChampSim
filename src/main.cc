@@ -15,7 +15,7 @@ bool perfect_H2P;
 bool collect_H2P_dataset;
 bool dataset_unique_histories, dataset_random = false;
 string perfect_H2P_file;
-
+string dataset_random_file;
 // measure H2P accuracy
 bool measure_H2P_accuracy = false;
 long total_H2P=0, correct_H2P_predicted=0;
@@ -532,6 +532,7 @@ int main(int argc, char** argv)
     dataset_random = false;
     // path to H2P IPs log file
     perfect_H2P_file = "";
+    dataset_random_file = "";
 
     // check to see if knobs changed using getopt_long()
     int c;
@@ -555,6 +556,7 @@ int main(int argc, char** argv)
             {"dataset_unique_histories", no_argument, 0, 'u'},
             {"measure_H2P_accuracy", no_argument, 0, 'M'},
             {"dataset_random", no_argument, 0, 'R'},
+            {"dataset_random_file", optional_argument, 0, 'f'},
             {"pytorch_pt", optional_argument, 0, 'N'},
             {"traces",  no_argument, 0, 't'},
             {0, 0, 0, 0}
@@ -562,7 +564,7 @@ int main(int argc, char** argv)
 
         int option_index = 0;
 
-        c = getopt_long_only(argc, argv, "wihIsbpHaomrPCuMRN", long_options, &option_index);
+        c = getopt_long_only(argc, argv, "wihIsbpHaomrPCuMRfN", long_options, &option_index);
         // no more option characters
         if (c == -1)
             break;
@@ -621,6 +623,9 @@ int main(int argc, char** argv)
                 break;
             case 'R':
                 dataset_random = true;
+                break;
+            case 'f':
+                dataset_random_file = optarg;
                 break;
             case 'N':
                 PytorchName = optarg;
@@ -738,12 +743,43 @@ int main(int argc, char** argv)
         }
         // add h2p ips in data structure
         while(getline(H2P_file, line)){
-            branchstats->add(strtoull(line.c_str(), NULL, 0));
+            branchstats->add(strtoull(line.c_str(), NULL, 0));            
         }
         branch_history = new Branch_History();
         cout << "Hard-to-Predict branches will be logged based on file: " << endl;
-        cout << perfect_H2P_file << endl;
+        cout << perfect_H2P_file << endl;        
     }
+    // open file containing specific stats for each H2P, in order to randomly collect H2P histories
+    if(dataset_random && dataset_random_file!=""){
+        ifstream MeasureFile(dataset_random_file);
+        if(!MeasureFile.good()){
+            cout << "DATASET RANDOM FILE DOES NOT EXIST" << endl;
+            cout << dataset_random_file << endl;
+            assert(false);
+        }
+        // skip logging info
+        string line;
+        while (getline(MeasureFile, line)){
+            if(line.find("Printing stats for each H2P seperately") != string::npos){
+                break;
+            }
+        }
+        
+        // add in branch history, the statistics for each branch         
+        while(getline(MeasureFile, line)){
+            string StartDilimiter = "";
+            string EndDilimiter = " => ";
+            string token = line.substr(line.find(StartDilimiter)+StartDilimiter.length(), line.find(EndDilimiter)-(line.find(StartDilimiter)+StartDilimiter.length()));
+            uint64_t ip;
+            ip = strtoull(token.c_str(), NULL, 0);
+            StartDilimiter = "total: ";
+            EndDilimiter = " Accuracy:";
+            token = line.substr(line.find(StartDilimiter)+StartDilimiter.length(), line.find(EndDilimiter)-(line.find(StartDilimiter)+StartDilimiter.length()));            
+            long occ = strtoull(token.c_str(), NULL, 0);            
+            branch_history->addH2PStat(ip, occ);
+        }
+    }
+
     // measure Tage accuracy for H2P only
     if (measure_H2P_accuracy){        
         ifstream H2P_file(perfect_H2P_file);
