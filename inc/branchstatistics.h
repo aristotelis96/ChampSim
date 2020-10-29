@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <functional>
 #include <time.h>
+#include <random>
 
 using namespace std;
 
@@ -197,10 +198,15 @@ class Branch_History {
                     }
                     myfile.close();
                 }
-            } else if (dataset_random){          
+            } else if (dataset_random){      
+                random_device rd;
+                mt19937 gen(rd());
+                uniform_int_distribution<> dis(0, 1000000);
+
                 long h2p_total_occurences = H2PsStats[h2pIP];      
-                double probability = (5000.0 / (double)h2p_total_occurences)*1000;                
-                double guess = (double)(rand() % 1000);                
+                //double probability = (5000.0 / (double)h2p_total_occurences)*1000;                                        
+                double probability = (100.0 / (double)h2p_total_occurences)*1000000;                   
+                double guess = (double)(dis(gen));                                
                 bool useH2P = (guess) < probability;
                 // if the probability is good, count H2P
                 if (useH2P){
