@@ -2,6 +2,9 @@
 #include "set.h"
 #include "branchstatistics.h"
 
+#include <fstream>
+#include <iostream>
+
 // out-of-order core
 O3_CPU ooo_cpu[NUM_CPUS]; 
 uint64_t current_core_cycle[NUM_CPUS], stall_cycle[NUM_CPUS];
@@ -452,12 +455,15 @@ void O3_CPU::read_from_trace()
                   /* if collecting dataset then output history every time you encounter H2P branch */
                   if (collect_H2P_dataset && perfect_H2P_file != ""){
                       // print history of branch, if it is a h2p
-                      if(branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){                          
-                          branch_history->print_history(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, (int)IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken);
+                      if(branchstats->contain(IFETCH_BUFFER.entry[ifetch_buffer_index].ip)){                                                    
+                            branch_history->print_history(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, (int)IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken);                    
                       }
                       // update history dataset
                       branch_history->add_branch(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken);
                   }
+                  if(!dataset_unique_histories && !dataset_random && collect_all){ 
+                        allBranchesFile <<  IFETCH_BUFFER.entry[ifetch_buffer_index].ip << " " << (int)IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken << endl;
+                    }
                   /* THIS SECTION IS FOR BRANCH STATISTICS */
                   if(warmup_complete[cpu] && doH2P){
                     branchstats->add(IFETCH_BUFFER.entry[ifetch_buffer_index].ip, IFETCH_BUFFER.entry[ifetch_buffer_index].branch_taken == branch_prediction);

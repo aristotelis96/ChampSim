@@ -4,8 +4,13 @@
 #include "ooo_cpu.h"
 #include "uncore.h"
 #include <fstream>
+#include <iostream>
 #include "branchstatistics.h"
 #include <unordered_map>
+
+#include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/iostreams/copy.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
 
 BRANCHSTATISTICS *branchstats;
 Branch_History *branch_history;
@@ -16,9 +21,16 @@ bool collect_H2P_dataset;
 bool dataset_unique_histories, dataset_random = false;
 string perfect_H2P_file;
 string dataset_random_file;
+bool encodedPC;
 // measure H2P accuracy
 bool measure_H2P_accuracy = false;
 long total_H2P=0, correct_H2P_predicted=0;
+// gzip file to collect all branches
+bool collect_all = false;
+string collect_all_file;
+ostream allBranchesFile(NULL);
+ofstream branchesFile;
+boost::iostreams::filtering_streambuf<boost::iostreams::output> outbuf;
 
 /* check H2P accuracy for Tage pred */
 unordered_map<uint64_t, accuracyStat> H2PBranches;
@@ -530,6 +542,7 @@ int main(int argc, char** argv)
     collect_H2P_dataset = false;
     dataset_unique_histories = false;
     dataset_random = false;
+    encodedPC = false;
     // path to H2P IPs log file
     perfect_H2P_file = "";
     dataset_random_file = "";
@@ -557,14 +570,17 @@ int main(int argc, char** argv)
             {"measure_H2P_accuracy", no_argument, 0, 'M'},
             {"dataset_random", no_argument, 0, 'R'},
             {"dataset_random_file", optional_argument, 0, 'f'},
-            {"pytorch_pt", optional_argument, 0, 'N'},
+            {"collect_all_branches", no_argument, 0, 'B'},
+            {"collect_all_branches_file", required_argument, 0, 'F'},
+            {"encodedPC", no_argument, 0, 'e'},
+            {"pytorch_pt", optional_argument, 0, 'N'},            
             {"traces",  no_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
 
-        c = getopt_long_only(argc, argv, "wihIsbpHaomrPCuMRfN", long_options, &option_index);
+        c = getopt_long_only(argc, argv, "wihIsbpHaomrPCuMRfBFeN", long_options, &option_index);
         // no more option characters
         if (c == -1)
             break;
@@ -626,6 +642,15 @@ int main(int argc, char** argv)
                 break;
             case 'f':
                 dataset_random_file = optarg;
+                break;
+            case 'B':
+                collect_all = true;
+                break;
+            case 'F':
+                collect_all_file = optarg;
+                break;
+            case 'e':
+                encodedPC = true;
                 break;
             case 'N':
                 PytorchName = optarg;
@@ -778,8 +803,21 @@ int main(int argc, char** argv)
             long occ = strtoull(token.c_str(), NULL, 0);            
             branch_history->addH2PStat(ip, occ);
         }
+	//branch_history->printH2PStats();
     }
-
+    // Collect all branches at gzip file
+    if (collect_all){
+        if(collect_all_file==""){
+            printf("GZIP COLLECT ALL BRANCHES FILE NOT EXIST\n");
+            assert(false);
+        }
+        branchesFile.open(collect_all_file, ios_base::out | ios_base::binary);
+        outbuf.push(boost::iostreams::gzip_compressor());
+        outbuf.push(branchesFile);
+        //Convert streambuf to ostream
+        allBranchesFile.rdbuf(&outbuf);     
+                  
+    }
     // measure Tage accuracy for H2P only
     if (measure_H2P_accuracy){        
         ifstream H2P_file(perfect_H2P_file);
@@ -1067,6 +1105,17 @@ int main(int argc, char** argv)
                 cout << "Heartbeat CPU " << i << " instructions: " << ooo_cpu[i].num_retired << " cycles: " << current_core_cycle[i];
                 cout << " heartbeat IPC: " << heartbeat_ipc << " cumulative IPC: " << cumulative_ipc; 
                 cout << " (Simulation time: " << elapsed_hour << " hr " << elapsed_minute << " min " << elapsed_second << " sec) " << endl;
+                
+                if(measure_H2P_accuracy){
+                    cout << "Accuracy of H2P --- " << endl;
+                    cout << "total: " << total_H2P << " correct: " << correct_H2P_predicted << endl;
+                    cout << "percentage: " << ((double)correct_H2P_predicted/(double)total_H2P)*100<< endl;
+                    cout << endl;
+                    cout << "------- Printing stats for each H2P seperately ----------" << endl;
+                    for (unordered_map<uint64_t, accuracyStat>::iterator itr = H2PBranches.begin(); itr != H2PBranches.end(); itr++){ 
+                        cout << itr->first << " => correct: " << itr->second.correct << " total: " << itr->second.total << " Accuracy: " << 100*((double)itr->second.correct/(double)itr->second.total) << "%" << endl;
+                    }
+                }
                 ooo_cpu[i].next_print_instruction += STAT_PRINTING_PERIOD;
 
                 ooo_cpu[i].last_sim_instr = ooo_cpu[i].num_retired;
