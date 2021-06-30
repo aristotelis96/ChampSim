@@ -9,13 +9,16 @@ inc = inc
 debug = 1
 
 CFlags = -Wall -O3 -std=gnu++14
-LDFlags =
-libs =
+LDFlags = -static-libstdc++ -D_GLIBCXX_USE_CXX11_ABI=0 
+libs = 
 libDir =
 
 install_root=/local/avontz/libtorch
 #-std=gnu++14 
-pytorchFlags=-I${install_root}/include -I${install_root}/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=0 -L${install_root}/lib -Wl,-R${install_root}/lib -ltorch -ltorch_cpu -lc10
+pytorchFlags=-I${install_root}/include -I${install_root}/include/torch/csrc/api/include -L${install_root}/lib -Wl,-R${install_root}/lib -ltorch -ltorch_cpu -lc10
+
+boost_root=/local/avontz/boost_1_62_0/
+boostFlags=-I${boost_root} -lz -lboost_iostreams
 #************************ DO NOT EDIT BELOW THIS LINE! ************************
 
 ifeq ($(debug),1)
@@ -45,13 +48,13 @@ all: $(binDir)/$(app)
 $(binDir)/$(app): buildrepo $(objects)
 	@mkdir -p `dirname $@`
 	@echo "Linking $@..."
-	@$(CC) $(objects) $(LDFlags) $(pytorchFlags)  -o $@
+	@$(CC) $(objects) $(LDFlags) $(boostFlags)  -o $@
 
 $(objDir)/%.o: %.$(srcExt)
 	@echo "Generating dependencies for $<..."
 	@$(call make-depend,$<,$@,$(subst .o,.d,$@))
 	@echo "Compiling $<..."
-	@$(CC) $(CFlags) $(pytorchFlags) $< -o $@
+	@$(CC) $(CFlags) $< -o $@
 
 clean:
 	$(RM) -r $(objDir)

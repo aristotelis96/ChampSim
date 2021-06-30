@@ -35,7 +35,7 @@ boost::iostreams::filtering_streambuf<boost::iostreams::output> outbuf;
 /* check H2P accuracy for Tage pred */
 unordered_map<uint64_t, accuracyStat> H2PBranches;
 
-string PytorchName = "";
+string predictionsFileName = "";
 
 uint8_t warmup_complete[NUM_CPUS], 
         simulation_complete[NUM_CPUS], 
@@ -559,7 +559,7 @@ int main(int argc, char** argv)
             {"cloudsuite", no_argument, 0, 'c'},
             {"low_bandwidth",  no_argument, 0, 'b'},
             {"perfect_H2P", no_argument, 0, 'p'},
-            {"perfect_H2P_file", optional_argument, 0, 'H'},
+            {"perfect_H2P_file", required_argument, 0, 'H'},
             {"accuracy",  optional_argument, 0, 'a'},
             {"occurrences",  optional_argument, 0, 'o'},
             {"misspredictions",  optional_argument, 0, 'm'},
@@ -573,7 +573,7 @@ int main(int argc, char** argv)
             {"collect_all_branches", no_argument, 0, 'B'},
             {"collect_all_branches_file", required_argument, 0, 'F'},
             {"encodedPC", no_argument, 0, 'e'},
-            {"pytorch_pt", optional_argument, 0, 'N'},            
+            {"predictionsFile", required_argument, 0, 'N'},            
             {"traces",  no_argument, 0, 't'},
             {0, 0, 0, 0}
         };
@@ -653,7 +653,7 @@ int main(int argc, char** argv)
                 encodedPC = true;
                 break;
             case 'N':
-                PytorchName = optarg;
+                predictionsFileName = optarg;
                 break;
             case 't':
                 traces_encountered =  1;
@@ -712,16 +712,16 @@ int main(int argc, char** argv)
         }
         // Use branchstats only as a data structure for H2Ps
         branchstats = new BRANCHSTATISTICS();
-        //skip log file information
-        string line;
-        while (getline(H2P_file, line)){
-            if(!line.find("IPs of H2P found:")){
-                break;
-            }                        
+        
+        string line;        
+        try{// add h2p ips in data structure
+            while(getline(H2P_file, line)){
+                branchstats->add(strtoull(line.c_str(), NULL, 0));
+            }
         }
-        // add h2p ips in data structure
-        while(getline(H2P_file, line)){
-            branchstats->add(strtoull(line.c_str(), NULL, 0));
+        catch(...){
+            cout << "H2P log file must be a txt with H2P IP in each line" << endl;
+            assert(false);
         }
         cout << "Hard-to-Predict branches will be 100% accurate based on file: " << endl;
         cout << perfect_H2P_file << endl;
@@ -844,26 +844,8 @@ int main(int argc, char** argv)
     }
     // if using neural torch script file for prediction, make sure to include perfect_H2P_file flag
     // in order to log H2Ps to use for Neural Predictor
-    if(PytorchName!=""){
-        ifstream H2P_file(perfect_H2P_file);
-        if(!H2P_file.good()){
-            cout << "H2P LOG FILE DOES NOT EXIST. Provide H2P file in order to log which H2Ps to use Neural Network predictor for." << endl;
-            assert(false);
-        }
-        // Use branchstats only as a data structure for H2Ps
-        branchstats = new BRANCHSTATISTICS();
-        //skip log file information
-        string line;
-        while (getline(H2P_file, line)){
-            if(!line.find("IPs of H2P found:")){
-                break;
-            }                        
-        }
-        // add h2p ips in data structure
-        while(getline(H2P_file, line)){
-            branchstats->add(strtoull(line.c_str(), NULL, 0));
-        }        
-        cout << endl << PytorchName << " will predict H2Ps found in file:" << endl;
+    if(predictionsFileName!=""){                
+        cout << endl << predictionsFileName << " will predict H2Ps found in file:" << endl;
         cout << perfect_H2P_file << endl;
     }
     // search through the argv for "-traces"

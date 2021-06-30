@@ -25,15 +25,19 @@ run_with_lock(){
 }
 
 #Number of CPU for parallel execution
-CPU_NUM=4
+CPU_NUM="${CPU_NUM:-28}"
 open_sem $CPU_NUM
 
+#BENCH
+BENCH="${BENCH:-505.mcf}"
+#ex alberta/ref
+TRACE_TYPE="${TRACE_TYPE:-ref}"
 cd /home/users/avontz/ChampSim/
 
-TRACE_DIR=/local/avontz/myTraces/600.perlbench/ref3
+TRACE_DIR=/local/avontz/myTraces/${BENCH}/${TRACE_TYPE}
 
 N_WARM=50000000
-N_SIM=2000000000
+N_SIM=1000000000
 OPTION="-hide_heartbeat -show_IPs"
 
 ACCURACY=99
@@ -41,7 +45,7 @@ OCCURRENCES=15000
 MISSPREDICTIONS=1000
 RESET_WINDOW=30000000
 
-OUTPUT_FOLDER=myTraces
+OUTPUT_FOLDER=myTraces/H2Ps/${BENCH}
 
 task(){
 	TRACE=$1    
@@ -55,3 +59,4 @@ mkdir -p ./results/H2P/${OUTPUT_FOLDER}
 for TRACE in `ls ${TRACE_DIR}`; do
     run_with_lock task $TRACE
 done;
+wait

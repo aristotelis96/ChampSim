@@ -1708,34 +1708,117 @@ int T = (PC ^ (phist & ((1 << m[BORN]) - 1))) % NBANKHIGH;
 
 #include "branchstatistics.h"
 
+//#include <torch/script.h> // One-stop header.
+
+#include <iostream>
+#include <memory>
+
+#include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/iostreams/copy.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+
+
+class CnnHelper {
+    private:				
+		istream predictionsFile;
+		ifstream fileStream;
+		boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;		
+		unordered_set<uint64_t> H2Ps;
+    public :
+        CnnHelper(): predictionsFile(NULL), fileStream(predictionsFileName, std::ios_base::in | std::ios_base::binary) {			
+            if(!fileStream.good()){
+				cout << "ERROR OPENING PREDICTIONS FILE" << endl;
+				assert(false);
+			}
+			inbuf.push(boost::iostreams::gzip_decompressor());
+			inbuf.push(fileStream);
+			//Convert streambuf to istream			
+			predictionsFile.rdbuf(&inbuf);		
+			// first line should contain the specific IPs that this file includes for predictions
+            string line;
+			getline(predictionsFile, line);
+			// remove new line
+			line.erase(remove(line.begin(), line.end(), '\n'), line.end());
+			// split string by spaces to include in set IPs
+			istringstream ss(line);
+			string word;
+			while(ss >> word){
+				uint64_t ip = stoll(word, nullptr, 0);
+				H2Ps.insert(ip);
+			}
+        };
+		bool ContainsIP(uint64_t ip){
+			return (H2Ps.find(ip) != H2Ps.end());
+		}
+        bool GetPrediction(uint64_t ip){			
+            string line;
+			getline(predictionsFile, line);
+			uint64_t ipInFile;
+			uint8_t prediction;
+			if(predictionsFile){
+				line.erase(remove(line.begin(), line.end(), '\n'), line.end());
+				ipInFile = stoll(line.substr(0, line.find(" " )), nullptr, 0); // get ip
+				prediction = stoll(line.substr(line.find(" " )+1, line.length()), nullptr, 0); // get prediction
+			} else {
+				cout << "Reached end of Prediction Trace" << endl;
+				// Clear H2Ps structure so this Predictor is never used again
+				H2Ps.clear();
+				return 0;
+			}
+			// check if ip matches the ip thats needed and return prediction
+			
+			
+			if(ip==ipInFile){
+				return prediction;
+			}
+			else{
+				cout << "ERROR IN LOG FILE DOES NOT MATCH REQUIRED IP" << endl;
+				assert(false);
+			}
+			
+        };
+
+        void UpdatePredictor(uint64_t ip, uint8_t taken){
+            // do nothing;
+			return;
+        };
+};
+
+
 class PREDICTOR *myPred;
 class PREDICTOR *h2pPred;
+
+class CnnHelper *cnnHelper;
 
 void O3_CPU::initialize_branch_predictor()
 {	
 	myPred = new PREDICTOR();
+    cnnHelper = new CnnHelper();
 }
 void O3_CPU::initialize_H2P_branch_predictor()
 {
 	h2pPred = new PREDICTOR();
 }
-
 uint8_t O3_CPU::predict_branch(uint64_t ip)
 {
-	return myPred->GetPrediction(ip);
+	if(cnnHelper->ContainsIP(ip)){
+		return cnnHelper->GetPrediction(ip);
+	}    
+	else{
+		return myPred->GetPrediction(ip);
+	}
 }
 uint8_t O3_CPU::predict_H2P_branch(uint64_t ip)
 {
 	return h2pPred->GetPrediction(ip);
 }
-
 void O3_CPU::last_branch_result(uint64_t ip, uint8_t taken, uint8_t branch_type, uint64_t branch_target)
-{
-	
+{	
 	OpType type = ConvertToOptype(branch_type);
 	myPred->UpdatePredictor(ip, type, taken, myPred->GetPrediction(ip), branch_target);
-}
 
+	cnnHelper->UpdatePredictor(ip, taken);
+}
 void O3_CPU::last_H2P_branch_result(uint64_t ip, uint8_t taken, uint8_t branch_type, uint64_t branch_target)
 {
 	OpType type = ConvertToOptype(branch_type);

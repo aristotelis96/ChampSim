@@ -9,6 +9,9 @@
 #include <functional>
 #include <time.h>
 #include <random>
+#include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/iostreams/copy.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
 
 using namespace std;
 
@@ -21,7 +24,11 @@ extern bool collect_H2P_dataset;
 extern bool dataset_unique_histories, dataset_random;
 extern bool measure_H2P_accuracy;
 extern long total_H2P, correct_H2P_predicted;
-extern std::string PytorchName;
+extern string predictionsFileName;
+extern bool encodedPC;
+extern bool collect_all;
+extern string collect_all_file;
+extern ostream allBranchesFile;
 
 /* check statistics for each H2P by Tage Predictor */
 typedef struct accuracyStat{
@@ -165,7 +172,7 @@ class Branch_History {
             ip_bool entry = {ip, taken};
             IPs.push_front(entry);
             // if list is bigger than 200 entries, delete last entry
-            if(IPs.size()>200){
+            if(IPs.size()>582){
                 IPs.pop_back();
             }
         }
@@ -187,8 +194,6 @@ class Branch_History {
                 if(unique_hashes.find(seed)==unique_hashes.end()){            
                     // append to file if not in set and add to set
                     unique_hashes.insert(seed);
-                    ofstream myfile;
-                    myfile.open("test.txt", ios::app);
                     // Print --- H2P --- and the h2p with its boolean
                     cout << "--- H2P ---" << endl;
                     cout << h2pIP << " " << taken << endl;
@@ -196,7 +201,6 @@ class Branch_History {
                     for (list<ip_bool>::iterator it = IPs.begin(); it != IPs.end(); it++){                    
                         cout << it->ip << " " << it->taken << endl;
                     }
-                    myfile.close();
                 }
             } else if (dataset_random){      
                 random_device rd;
@@ -204,22 +208,21 @@ class Branch_History {
                 uniform_int_distribution<> dis(0, 1000000);
 
                 long h2p_total_occurences = H2PsStats[h2pIP];      
-                //double probability = (5000.0 / (double)h2p_total_occurences)*1000;                                        
-                double probability = (100.0 / (double)h2p_total_occurences)*1000000;                   
+                double probability = (1000.0 / (double)h2p_total_occurences)*1000000;                   
                 double guess = (double)(dis(gen));                                
                 bool useH2P = (guess) < probability;
                 // if the probability is good, count H2P
                 if (useH2P){
                     ofstream myfile;
-                    myfile.open("test.txt", ios::app);
                     // Print --- H2P --- and the h2p with its boolean
                     cout << "--- H2P ---" << endl;
                     cout << h2pIP << " " << taken << endl;
                     // Then print history
                     for (list<ip_bool>::iterator it = IPs.begin(); it != IPs.end(); it++){                    
+                        int encoded = (int)(it->ip & 255) << 1;
+                        encoded += (int)it->taken;
                         cout << it->ip << " " << it->taken << endl;
                     }
-                    myfile.close();       
                 }
             } else{
                 ofstream myfile;
@@ -228,8 +231,15 @@ class Branch_History {
                 cout << "--- H2P ---" << endl;
                 cout << h2pIP << " " << taken << endl;
                 // Then print history
-                for (list<ip_bool>::iterator it = IPs.begin(); it != IPs.end(); it++){                    
-                    cout << it->ip << " " << it->taken << endl;
+                for (list<ip_bool>::iterator it = IPs.begin(); it != IPs.end(); it++){      
+                    if(encodedPC){           
+                        int encoded = (int)(it->ip & 127) << 1;
+                        encoded += (int)it->taken;
+                        cout << encoded << endl;
+                    }
+                    else{
+                        cout << it->ip << " " << it->taken << endl;
+                    }
                 }
                 myfile.close();   
             }
